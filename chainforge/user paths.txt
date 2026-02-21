@@ -1,0 +1,196 @@
+START
+ │
+ ▼
+Select Network Type
+ ├── PUBLIC (Permissionless, Open Network)
+ │     │
+ │     ▼
+ │   Governance: Open / Community-Driven
+ │     │
+ │     ▼
+ │   Consensus
+ │     ├── Proof of Work (PoW)
+ │     ├── Proof of Authority (PoA)
+ │     └── Proof of Stake (Future)
+ │     │
+ │     ▼
+ │   Node Roles
+ │     ├── Miner / Validator Nodes
+ │     ├── Full Nodes
+ │     └── Light Clients
+ │     │
+ │     ▼
+ │   Synchronization Mode
+ │     ├── Full Sync
+ │     ├── Fast Sync
+ │     └── Light Sync
+ │     │
+ │     ▼
+ │   Smart Contract Runtime
+ │     ├── WASM Runtime
+ │     └── EVM-Compatible (Optional)
+ │     │
+ │     ▼
+ │   Token & Incentive System
+ │     ├── Native Token
+ │     └── No Token
+ │     │
+ │     ▼
+ │   Deployment
+ │     ├── Dockerized Network
+ │     └── Cloud Bootstrap Nodes
+ │     │
+ │     ▼
+ │   Monitoring & Security
+ │     ├── Metrics + Logs
+ │     ├── TLS + Signatures
+ │     └── DDoS Protection
+ │
+ │
+ └── PERMISSIONED / PRIVATE (Controlled Network)
+       │
+       ▼
+     Governance Model
+       ├── CENTRALIZED (Single Authority)
+       └── CONSORTIUM / DISTRIBUTED (Multiple Authorities)
+       │
+       ▼
+   ┌─────────────────────────────────────────────────────────┐
+   │                                                         │
+   │  CENTRALIZED PATH                                      │
+   │                                                         │
+   └─────────────────────────────────────────────────────────┘
+       │
+       ▼
+     Write Authority
+       ├── Fixed Leader
+       └── Rotating Leader
+       │
+       ▼
+     Consensus
+       ├── Raft
+       ├── Paxos
+       └── Single-Writer (No Consensus)
+       │
+       ▼
+     Node Roles
+       ├── Leader / Writer
+       ├── Reader / Observer
+       └── Backup / Replica
+       │
+       ▼
+     Synchronization Mode
+       ├── Real-Time Replication
+       ├── Snapshot Sync
+       └── Periodic Batch Sync
+       │
+       ▼
+     Access Control
+       ├── Role-Based Access (RBAC)
+       └── Whitelist / Certificate-Based
+       │
+       ▼
+     Smart Contract Usage
+       ├── Data Validation
+       └── Workflow Assistance
+       │
+       ▼
+     Deployment
+       ├── On-Premise Servers
+       └── Private Cloud
+       │
+       ▼
+     Monitoring & Security
+       ├── Central Logs
+       ├── Audit Trails
+       └── Key Rotation
+       │
+       ▼
+     Backup & Recovery
+       ├── Automated Snapshots
+       └── Disaster Recovery
+
+
+       ▼
+   ┌─────────────────────────────────────────────────────────┐
+   │                                                         │
+   │  CONSORTIUM / DISTRIBUTED PATH                          │
+   │                                                         │
+   └─────────────────────────────────────────────────────────┘
+       │
+       ▼
+     Validator Structure
+       ├── Equal Validators
+       └── Weighted Validators
+       │
+       ▼
+     Consensus
+       ├── PBFT
+       ├── HotStuff
+       └── Tendermint-Style
+       │
+       ▼
+     Fault Tolerance
+       ├── Crash Fault Tolerant (CFT)
+       └── Byzantine Fault Tolerant (BFT)
+       │
+       ▼
+     Node Roles
+       ├── Validator Nodes
+       ├── Observer Nodes
+       └── Auditor Nodes
+       │
+       ▼
+     Synchronization Mode
+       ├── Full State Sync
+       ├── Snapshot + Catch-Up
+       └── Light Sync
+       │
+       ▼
+     Identity & Onboarding
+       ├── Certificate Authority
+       └── Multi-Signature Approval
+       │
+       ▼
+     Smart Contract Usage
+       ├── Policy Enforcement
+       └── Multi-Party Approval Logic
+       │
+       ▼
+     Deployment
+       ├── Hybrid Cloud
+       └── Multi-Region Deployment
+       │
+       ▼
+     Monitoring & Security
+       ├── Distributed Logs
+       ├── Intrusion Detection
+       └── Slashing / Penalty Rules
+       │
+       ▼
+     Backup & Recovery
+       ├── Distributed Snapshots
+       └── Cross-Region Replication
+
+
+FINAL STAGE (ALL PATHS)
+       │
+       ▼
+   API & Integration Layer
+       ├── REST / gRPC APIs
+       ├── Auto-Generated SDKs
+       └── Access Tokens
+       │
+       ▼
+   Developer Application Integration
+       ├── Web Applications
+       ├── Mobile Apps
+       └── Enterprise Systems
+       │
+       ▼
+   Lifecycle Management
+       ├── Version Upgrades
+       ├── Module Replacement
+       └── Governance-Based Changes
+
+END → Generated Blockchain Package → User Deployment → Application Usage

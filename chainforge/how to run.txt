@@ -1,0 +1,8 @@
+terminal 1:
+cd chainforge/platform-backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+
+terminal 2:
+cd chainforge/platform-frontend
+npm run dev

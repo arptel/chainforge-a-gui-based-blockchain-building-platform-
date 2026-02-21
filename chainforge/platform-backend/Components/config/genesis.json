@@ -1,0 +1,20 @@
+{
+    "networkType": "public",
+    "publicConsensus": "pow",
+    "smartContracts": [
+        {
+            "id": "contract_123",
+            "name": "MyStorage",
+            "type": "python",
+            "code": "class MyStorage:\n    def set(self, value):\n        self.ctx.state['storage_value'] = value\n",
+            "apiKey": "sk_test_123"
+        },
+        {
+            "id": "contract_456",
+            "name": "MyToken",
+            "type": "solidity",
+            "code": "// SPDX...",
+            "apiKey": "sk_test_456"
+        }
+    ]
+}
