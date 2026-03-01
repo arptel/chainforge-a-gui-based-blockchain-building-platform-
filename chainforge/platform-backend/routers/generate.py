@@ -29,6 +29,7 @@ def download_chain(
     from generator.validator import ConfigValidator
     errors = ConfigValidator.validate(project.config)
     if errors:
+        # TODO: Improve error reporting to include field-level details
         raise HTTPException(status_code=400, detail=f"Configuration error: {', '.join(errors)}")
 
     builder = ChainBuilder(project)
