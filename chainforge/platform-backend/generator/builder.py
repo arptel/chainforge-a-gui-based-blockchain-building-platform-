@@ -12,29 +12,150 @@ class ChainBuilder:
         self.project = project
         self.config = project.config
 
+    @staticmethod
+    def get_default_contracts(config: dict) -> list:
+        import sys
+        import os
+        
+        backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        if backend_dir not in sys.path:
+            sys.path.append(backend_dir)
+            
+        from Components.modules.default_smart_contracts.Contract_registry import SYSTEM_CONTRACTS
+        
+        def generate_dummy_code(name, methods):
+            contract_file_path = os.path.join(backend_dir, "Components", "modules", "default_smart_contracts", f"{name}.py")
+            if os.path.exists(contract_file_path):
+                with open(contract_file_path, "r", encoding="utf-8") as f:
+                    return f.read()
+                    
+            methods_code = "\n".join([f"    def {m}(self, *args, **kwargs):\n        pass" for m in methods])
+            if not methods_code:
+                methods_code = "    pass"
+            return f"class {name}:\n    def __init__(self):\n        pass\n\n{methods_code}\n"
+            
+        default_contracts = []
+        contract_id_counter = 1000
+        
+        # ALWAYS INCLUDE BASE
+        for c_name, c_data in SYSTEM_CONTRACTS.get("base", {}).items():
+            default_contracts.append({
+                "id": str(contract_id_counter),
+                "name": c_name,
+                "type": "python",
+                "code": generate_dummy_code(c_name, c_data.get("methods", [])),
+                "apiKey": f"sys_key_{c_name.lower()}",
+                "isSystem": True
+            })
+            contract_id_counter += 1
+            
+        # Map config keys to registry
+        registry_keys_to_check = [
+            config.get("networkType"),
+            config.get("publicConsensus"),
+            config.get("centralizedConsensus"),
+            config.get("consortiumConsensus"),
+            config.get("publicSyncMode"),
+            config.get("centralizedSync"),
+            config.get("consortiumSync"),
+            config.get("permissionedType"),
+            config.get("publicToken")
+        ]
+        
+        for key in registry_keys_to_check:
+            if not key: continue
+            if key == "native": key = "token"
+            if key == "light": key = "light_sync"
+            
+            if key in SYSTEM_CONTRACTS:
+                for c_name, c_data in SYSTEM_CONTRACTS[key].items():
+                    default_contracts.append({
+                        "id": str(contract_id_counter),
+                        "name": c_name,
+                        "type": "python",
+                        "code": generate_dummy_code(c_name, c_data.get("methods", [])),
+                        "apiKey": f"sys_key_{c_name.lower()}",
+                        "isSystem": True
+                    })
+                    contract_id_counter += 1
+                    
+        return default_contracts
+
     def build_package(self) -> bytes:
         """
         Generates the blockchain source code and returns a ZIP file as bytes.
         """
+        # Determine allowed files per module based on config
+        allowed_consensus = set()
+        allowed_sync = set()
+        allowed_vm = set()
+        
+        network_type = self.config.get("networkType")
+        if network_type == "public":
+            allowed_consensus.add(self.config.get("publicConsensus"))
+            allowed_sync.add(self.config.get("publicSyncMode"))
+            allowed_vm.add(self.config.get("publicRuntime"))
+        elif network_type == "permissioned":
+            p_type = self.config.get("permissionedType")
+            if p_type == "centralized":
+                allowed_consensus.add(self.config.get("centralizedConsensus"))
+                allowed_sync.add(self.config.get("centralizedSync"))
+            elif p_type == "consortium":
+                allowed_consensus.add(self.config.get("consortiumConsensus"))
+                allowed_sync.add(self.config.get("consortiumSync"))
+        
+        # Format names to match module files, assuming they end in .py
+        # Handle 'none' consensus safely, handle 'light' sync if it goes by another name, etc.
+        allowed_consensus_files = {f"{c}.py" for c in allowed_consensus if c}
+        allowed_consensus_files.add("__init__.py")
+        
+        allowed_sync_files = {f"{s}.py" for s in allowed_sync if s}
+        allowed_sync_files.add("__init__.py")
+        
+        allowed_vm_files = {f"{v}.py" for v in allowed_vm if v}
+        allowed_vm_files.add("__init__.py")
+        # Ensure python_vm is always available as fallback/dependency
+        allowed_vm_files.add("python_vm.py") 
+
         bio = io.BytesIO()
         with zipfile.ZipFile(bio, "w", zipfile.ZIP_DEFLATED) as zip_file:
              for root, dirs, files in os.walk(TEMPLATE_DIR):
                 for file in files:
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, TEMPLATE_DIR)
-                    # Skip files we want to overwrite
-                    if arcname.replace("\\", "/") == "api/server.py":
+                    arcname_forward = arcname.replace("\\", "/")
+                    
+                    # Skip files we want to overwrite explicitly
+                    if arcname_forward == "api/server.py":
                         continue
+                        
+                    # Filtering Logic for modules/
+                    if arcname_forward.startswith("modules/consensus/"):
+                        if file not in allowed_consensus_files:
+                            continue
+                    elif arcname_forward.startswith("modules/sync/"):
+                        if file not in allowed_sync_files:
+                            continue
+                    elif arcname_forward.startswith("modules/vm/"):
+                        if file not in allowed_vm_files:
+                            continue
+                            
                     zip_file.write(file_path, arcname)
                     
              # Add a specific config file
              config_json = json.dumps(self.config, indent=4)
              zip_file.writestr("config/genesis.json", config_json)
 
-            # Smart Contracts
-             contracts = self.config.get('smartContracts', [])
-             has_contracts = len(contracts) > 0
+             # Smart Contracts
+             user_contracts = self.config.get('smartContracts', [])
+             default_contracts = self.get_default_contracts(self.config)
              
+             # Prevent duplicates if user_contracts already contains the defaults (added during project creation)
+             user_contract_names = {c.get("name") for c in user_contracts}
+             filtered_defaults = [c for c in default_contracts if c.get("name") not in user_contract_names]
+             
+             contracts = filtered_defaults + user_contracts
+             has_contracts = len(contracts) > 0
              if has_contracts:
                  from .solidity_transpiler import transpile
                  
@@ -290,11 +411,15 @@ load_contracts()
     def _generate_server(self, has_contracts: bool):
         code = """from fastapi import FastAPI
 import uvicorn
-from ..core.chain import Blockchain
-"""
-        if has_contracts:
-            code += "from . import contract_routes\n"
+from core.chain import Blockchain
+from api import contract_routes
 
+network_instance = None
+
+def set_network(network):
+    global network_instance
+    network_instance = network
+"""
         code += """
 def run(chain: Blockchain, port: int):
     app = FastAPI()

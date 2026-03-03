@@ -37,3 +37,14 @@ class FastSync(SyncInterface):
     def handle_new_block(self, block_data: dict):
         # We append normally now that we possess the state
         print(f"[FastSync] Handled new block gossip.")
+
+    def handle_gap(self, incoming_index: int) -> str:
+        """For FastSync, we might just want to request a state snapshot payload."""
+        print(f"[FastSync] Gap detected. Requesting Fast state sync instead of full history.")
+        import json
+        return json.dumps({"type": "FAST_SYNC_REQUEST", "data": {}})
+
+    def handle_sync_response(self, response_data: dict) -> str:
+        """Handle state snapshot or headers"""
+        print("[FastSync] Received fast sync snapshot response.")
+        return None

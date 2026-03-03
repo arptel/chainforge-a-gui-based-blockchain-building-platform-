@@ -198,6 +198,32 @@ export default function ProjectDetailsPage() {
                                     </>
                                 )}
                             </div>
+
+                            {/* Gas & Economy Section */}
+                            <div className="mt-6 pt-6 border-t">
+                                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center">
+                                    <Coins className="text-amber-500 w-4 h-4 mr-2" />
+                                    Transaction Fees & Gas
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div className="p-3 border rounded-lg bg-card text-center">
+                                        <div className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Status</div>
+                                        <div className="font-semibold">{project.config.enableGas !== false ? 'Enabled' : 'Free (Gasless)'}</div>
+                                    </div>
+                                    {project.config.enableGas !== false && (
+                                        <>
+                                            <div className="p-3 border rounded-lg bg-card text-center">
+                                                <div className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Min Price</div>
+                                                <div className="font-semibold">{project.config.minGasPrice || 0} wei</div>
+                                            </div>
+                                            <div className="p-3 border rounded-lg bg-card text-center">
+                                                <div className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Contract Limit</div>
+                                                <div className="font-semibold">{project.config.defaultGasLimit || 100000} ops</div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
@@ -205,7 +231,7 @@ export default function ProjectDetailsPage() {
                 {project.config.smartContracts && project.config.smartContracts.length > 0 && (
                     <div className="md:col-span-3 mt-8 space-y-8">
                         {/* Default Ecosystem Contracts */}
-                        {project.config.smartContracts.filter((c: any) => ['DataStore', 'Governance', 'SimpleToken'].includes(c.name)).length > 0 && (
+                        {project.config.smartContracts.filter((c: any) => c.isSystem).length > 0 && (
                             <Card className="border shadow-sm">
                                 <CardHeader className="bg-primary/5 pb-4 border-b">
                                     <CardTitle className="flex items-center text-xl text-primary">
@@ -218,7 +244,7 @@ export default function ProjectDetailsPage() {
                                 </CardHeader>
                                 <CardContent className="pt-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {project.config.smartContracts.filter((c: any) => ['DataStore', 'Governance', 'SimpleToken'].includes(c.name)).map((c: any) => (
+                                        {project.config.smartContracts.filter((c: any) => c.isSystem).map((c: any) => (
                                             <div key={c.id} className="flex flex-col p-4 border rounded-xl bg-card hover:border-primary/50 transition-colors">
                                                 <div className="flex items-center space-x-4 mb-4">
                                                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
@@ -250,7 +276,7 @@ export default function ProjectDetailsPage() {
                         )}
 
                         {/* Custom Contracts */}
-                        {project.config.smartContracts.filter((c: any) => !['DataStore', 'Governance', 'SimpleToken'].includes(c.name)).length > 0 && (
+                        {project.config.smartContracts.filter((c: any) => !c.isSystem).length > 0 && (
                             <Card className="border shadow-sm">
                                 <CardHeader>
                                     <CardTitle className="flex items-center text-xl">
@@ -263,7 +289,7 @@ export default function ProjectDetailsPage() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {project.config.smartContracts.filter((c: any) => !['DataStore', 'Governance', 'SimpleToken'].includes(c.name)).map((c: any) => (
+                                        {project.config.smartContracts.filter((c: any) => !c.isSystem).map((c: any) => (
                                             <div key={c.id} className="flex flex-col p-4 border rounded-xl bg-card hover:border-primary/50 transition-colors">
                                                 <div className="flex items-center space-x-4 mb-4">
                                                     <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">

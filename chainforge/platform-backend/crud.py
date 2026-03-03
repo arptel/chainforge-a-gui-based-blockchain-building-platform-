@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-import models, schemas, default_contracts
+import models, schemas
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -9,6 +9,7 @@ def get_user(db: Session, user_id: int):
 
 def get_user_by_username(db: Session, username: str):
     return db.query(models.User).filter(models.User.username == username).first()
+import auth
 
 def create_user(db: Session, user: schemas.UserCreate):
     # Validate password is not empty
@@ -19,7 +20,7 @@ def create_user(db: Session, user: schemas.UserCreate):
     password_to_hash = user.password[:72] if len(user.password) > 72 else user.password
     
     try:
-        hashed_password = pwd_context.hash(password_to_hash)
+        hashed_password = auth.get_password_hash(password_to_hash)
     except Exception as e:
         raise ValueError(f"Password hashing failed: {str(e)}")
     
@@ -38,8 +39,9 @@ def create_project(db: Session, project: schemas.ProjectCreate, user_id: int):
     if not project.config:
         project.config = {}
         
+    from generator.builder import ChainBuilder
     # Inject Default Contracts conditionally based on config
-    defaults = default_contracts.get_default_contracts(project.config)
+    defaults = ChainBuilder.get_default_contracts(project.config)
     
     # Ensure smartContracts list exists
     if "smartContracts" not in project.config:

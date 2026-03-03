@@ -1,0 +1,32 @@
+{
+    "networkType": "public",
+    "consensus": "pow",
+    "governance": "centralized",
+    "nodeCount": 1,
+    "publicConsensus": "pow",
+    "publicSyncMode": "full",
+    "publicRuntime": "python_vm",
+    "smartContracts": [
+        {
+            "id": "c1",
+            "name": "Token",
+            "type": "python",
+            "code": "print('Hello Smart Contract')",
+            "apiKey": "test-key"
+        },
+        {
+            "id": "sys_datastore",
+            "name": "DataStore",
+            "type": "solidity",
+            "apiKey": "sk_sys_datastore",
+            "code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ncontract DataStore {\n    mapping(string => string) private data;\n\n    event Stored(string key, string value);\n\n    function store(string memory key, string memory value) public {\n        data[key] = value;\n        emit Stored(key, value);\n    }\n\n    function retrieve(string memory key) public view returns (string memory) {\n        return data[key];\n    }\n}"
+        },
+        {
+            "id": "sys_governance",
+            "name": "Governance",
+            "type": "solidity",
+            "apiKey": "sk_sys_governance",
+            "code": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ncontract Governance {\n    struct Proposal {\n        string description;\n        uint256 voteCount;\n        bool exists;\n    }\n\n    mapping(uint256 => Proposal) public proposals;\n\n    function propose(uint256 proposalId, string memory description) public {\n        require(!proposals[proposalId].exists, \"Proposal already exists\");\n        proposals[proposalId] = Proposal(description, 0, true);\n    }\n\n    function vote(uint256 proposalId) public {\n        require(proposals[proposalId].exists, \"Proposal does not exist\");\n        proposals[proposalId].voteCount += 1;\n    }\n\n    function getProposal(uint256 proposalId) public view returns (string memory description, uint256 voteCount) {\n        require(proposals[proposalId].exists, \"Proposal does not exist\");\n        return (proposals[proposalId].description, proposals[proposalId].voteCount);\n    }\n}"
+        }
+    ]
+}

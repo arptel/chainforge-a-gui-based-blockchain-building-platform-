@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,19 +17,67 @@ interface SmartContract {
     type: 'python' | 'solidity';
     code: string;
     apiKey: string;
+    isSystem?: boolean;
 }
 
 interface SmartContractListProps {
     contracts: SmartContract[];
     onChange: (contracts: SmartContract[]) => void;
+    projectConfig?: any;
 }
 
-export const SmartContractList: React.FC<SmartContractListProps> = ({ contracts = [], onChange }) => {
+export const SmartContractList: React.FC<SmartContractListProps> = ({ contracts = [], onChange, projectConfig }) => {
     const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
     const [newContractName, setNewContractName] = useState("");
     const [newContractType, setNewContractType] = useState<'python' | 'solidity'>('python');
+    const [defaultContracts, setDefaultContracts] = useState<SmartContract[]>([]);
 
-    const selectedContract = contracts.find(c => c.id === selectedContractId);
+    // Create a stable string representation of just the network configuration fields
+    // This prevents infinite loops where onChange updates projectConfig.smartContracts, triggering re-fetches
+    const networkConfigDeps = projectConfig ? JSON.stringify({
+        networkType: projectConfig.networkType,
+        publicConsensus: projectConfig.publicConsensus,
+        centralizedConsensus: projectConfig.centralizedConsensus,
+        consortiumConsensus: projectConfig.consortiumConsensus,
+        publicSyncMode: projectConfig.publicSyncMode,
+        centralizedSync: projectConfig.centralizedSync,
+        consortiumSync: projectConfig.consortiumSync,
+        permissionedType: projectConfig.permissionedType,
+        publicToken: projectConfig.publicToken
+    }) : "";
+
+    useEffect(() => {
+        if (!projectConfig) return;
+        const fetchDefaults = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await axios.post("http://localhost:8000/generate/default-contracts", projectConfig, {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {}
+                });
+                if (res.data && res.data.contracts) {
+                    const fetchedDefaults = res.data.contracts;
+                    setDefaultContracts(fetchedDefaults);
+
+                    // Push the combined list of defaults + user contracts up to the parent form state
+                    // Make sure we don't accidentally duplicate them if they already exist in `contracts`
+                    const userOnlyContracts = contracts.filter(c => !c.isSystem);
+
+                    // Only trigger onChange if the defaults are actually different from what we already have
+                    // to prevent unnecessary re-renders in the parent
+                    const currentDefaults = contracts.filter(c => c.isSystem);
+                    if (JSON.stringify(fetchedDefaults) !== JSON.stringify(currentDefaults)) {
+                        onChange([...fetchedDefaults, ...userOnlyContracts]);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch default contracts", err);
+            }
+        };
+        fetchDefaults();
+    }, [networkConfigDeps]); // Only re-run when the structural network config changes
+
+    const allContracts = [...contracts];
+    const selectedContract = allContracts.find(c => c.id === selectedContractId);
 
     const handleAddContract = () => {
         if (!newContractName) return;
@@ -82,9 +131,23 @@ contract ${newContractName} {
     };
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-full min-h-[400px]">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-[550px] min-h-[400px]">
+            {/* Inject a script to aggressively kill Monaco's internal unhandled promise rejections before Next.js catches them */}
+            <script dangerouslySetInnerHTML={{
+                __html: `
+                window.addEventListener('unhandledrejection', function(event) {
+                    if (event.reason && typeof event.reason === 'object' && !event.reason.message && !event.reason.stack) {
+                        event.preventDefault();
+                        event.stopImmediatePropagation();
+                    } else if (event.reason && (event.reason.name === 'Canceled' || event.reason.message === 'Canceled')) {
+                        event.preventDefault();
+                        event.stopImmediatePropagation();
+                    }
+                });
+            ` }} />
+
             {/* Sidebar List */}
-            <div className="md:col-span-1 border rounded-xl overflow-hidden flex flex-col bg-background">
+            <div className="md:col-span-1 border rounded-xl overflow-hidden flex flex-col bg-background h-full">
                 <div className="p-4 border-b bg-muted/30">
                     <h3 className="font-semibold mb-2">My Contracts</h3>
                     <div className="space-y-2">
@@ -110,41 +173,48 @@ contract ${newContractName} {
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                    {contracts.length === 0 && (
+                    {allContracts.length === 0 && (
                         <div className="text-center text-muted-foreground py-8 text-sm">
                             No contracts added yet.
                         </div>
                     )}
-                    {contracts.map(c => (
+                    {allContracts.map(c => (
                         <div
                             key={c.id}
-                            className={`p-3 rounded-lg border cursor-pointer flex justify-between items-center group transition-all ${selectedContractId === c.id ? 'border-primary bg-primary/5 shadow-sm' : 'hover:bg-accent'}`}
+                            className={`p-3 rounded-lg border cursor-pointer flex justify-between items-center group transition-all ${selectedContractId === c.id ? 'border-primary bg-primary/5 shadow-sm' : 'hover:bg-accent'} ${c.isSystem ? 'border-dashed bg-muted/20' : ''}`}
                             onClick={() => setSelectedContractId(c.id)}
                         >
                             <div className="flex items-center gap-3 overflow-hidden">
                                 <div className={`p-2 rounded-md ${c.type === 'python' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>
                                     <Code className="w-4 h-4" />
                                 </div>
-                                <div className="truncate">
-                                    <div className="font-medium truncate">{c.name}</div>
+                                <div className="truncate flex flex-col items-start">
+                                    <div className="font-medium truncate flex items-center gap-2">
+                                        {c.name}
+                                        {c.isSystem && (
+                                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase font-semibold">System</span>
+                                        )}
+                                    </div>
                                     <div className="text-xs text-muted-foreground uppercase">{c.type}</div>
                                 </div>
                             </div>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
+                            {!c.isSystem && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </Button>
+                            )}
                         </div>
                     ))}
                 </div>
             </div>
 
             {/* Editor Area */}
-            <div className="md:col-span-3 flex flex-col">
+            <div className="md:col-span-3 flex flex-col h-full overflow-hidden">
                 {selectedContract ? (
                     <div className="space-y-4 flex flex-col h-full">
                         <div className="flex justify-between items-center">
@@ -161,11 +231,32 @@ contract ${newContractName} {
                             </div>
                         </div>
 
-                        <div className="flex-1">
+                        {selectedContract.type === 'python' && !selectedContract.isSystem && (
+                            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-200 text-xs px-3 py-2 rounded-md flex flex-col gap-1 shadow-sm">
+                                <div className="flex items-start">
+                                    <span className="mr-2 text-sm">⚠️</span>
+                                    <div>
+                                        <strong>Sandbox Mode Active:</strong> Ensure all logic is deterministic. Network requests and file accesses are strictly forbidden. The <code>import</code> keyword is globally disabled.
+                                    </div>
+                                </div>
+                                <div className="ml-6 text-amber-700/80 dark:text-amber-300/80">
+                                    <strong>Pre-loaded modules:</strong> The VM automatically injects <code>math</code> and <code>hashlib</code> into the global scope. Call them directly without importing (e.g., <code>result = math.sqrt(25)</code>).
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex-1 relative">
+                            {selectedContract.isSystem && (
+                                <div className="absolute top-0 right-0 z-10 p-2 text-xs font-semibold text-muted-foreground bg-background/80 rounded-bl-lg border-l border-b">
+                                    READ ONLY
+                                </div>
+                            )}
                             <CodeEditor
+                                key={selectedContract.id}
                                 value={selectedContract.code}
                                 onChange={handleUpdateCode}
                                 language={selectedContract.type}
+                                readOnly={selectedContract.isSystem}
                             />
                         </div>
                     </div>

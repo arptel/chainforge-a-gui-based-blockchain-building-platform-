@@ -171,7 +171,7 @@ curl -X POST http://localhost:8000/api/v1/contracts/execute/${contract.id}/your_
                                 </ul>
                             </div>
                         )}
-                        {!['DataStore', 'Governance', 'SimpleToken'].includes(contract.name) && (
+                        {!contract.isSystem && (
                             <div className="space-y-4 text-sm text-muted-foreground">
                                 <p>This is a custom contract. Its functions and use cases depend entirely on the logic you have written in the source code.</p>
                             </div>

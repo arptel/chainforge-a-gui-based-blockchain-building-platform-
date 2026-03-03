@@ -36,6 +36,23 @@ def download_chain(
         headers={"Content-Disposition": f"attachment; filename=chain_{project.id}.zip"}
     )
 
+from fastapi import Body
+
+@router.post("/default-contracts")
+def get_default_contracts(
+    config: dict = Body(...),
+    current_user: schemas.User = Depends(auth.get_current_user)
+):
+    """
+    Returns the list of default system smart contracts that will be included 
+    based on the provided network configuration.
+    """
+    try:
+        contracts = ChainBuilder.get_default_contracts(config)
+        return {"contracts": contracts}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/{project_id}/install")
 def install_chain(
     project_id: int,

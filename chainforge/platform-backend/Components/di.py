@@ -2,26 +2,52 @@ from typing import Dict, Any, Type
 from .interfaces.consensus import ConsensusInterface
 from .interfaces.network import NetworkInterface
 from .interfaces.sync import SyncInterface
-from .modules.consensus.pow import PoWConsensus
-from .modules.consensus.raft import RaftConsensus
-from .modules.consensus.poa import PoAConsensus
-from .modules.consensus.pos import PoSConsensus
-from .modules.consensus.pbft import PBFTConsensus
-from .modules.consensus.hotstuff import HotStuffConsensus
-from .modules.consensus.tendermint import TendermintConsensus
-from .modules.consensus.paxos import PaxosConsensus
-from .modules.consensus.none import NoConsensus
-from .modules.network.p2p import P2PNetwork
-from .modules.sync.fast import FastSync
-from .modules.sync.light import LightSync
-from .modules.sync.snapshot import SnapshotSync
-from .modules.sync.realtime import RealtimeSync
-from .modules.sync.batch import BatchSync
+try: from .modules.consensus.pow import PoWConsensus
+except ImportError: PoWConsensus = None
+try: from .modules.consensus.raft import RaftConsensus
+except ImportError: RaftConsensus = None
+try: from .modules.consensus.poa import PoAConsensus
+except ImportError: PoAConsensus = None
+try: from .modules.consensus.pos import PoSConsensus
+except ImportError: PoSConsensus = None
+try: from .modules.consensus.pbft import PBFTConsensus
+except ImportError: PBFTConsensus = None
+try: from .modules.consensus.hotstuff import HotStuffConsensus
+except ImportError: HotStuffConsensus = None
+try: from .modules.consensus.tendermint import TendermintConsensus
+except ImportError: TendermintConsensus = None
+try: from .modules.consensus.paxos import PaxosConsensus
+except ImportError: PaxosConsensus = None
+try: from .modules.consensus.none import NoConsensus
+except ImportError: NoConsensus = None
+
+try: from .modules.network.p2p import P2PNetwork
+except ImportError: P2PNetwork = None
+
+try: from .modules.sync.fast import FastSync
+except ImportError: FastSync = None
+try: from .modules.sync.light import LightSync
+except ImportError: LightSync = None
+try: from .modules.sync.snapshot import SnapshotSync
+except ImportError: SnapshotSync = None
+try: from .modules.sync.realtime import RealtimeSync
+except ImportError: RealtimeSync = None
+try: from .modules.sync.batch import BatchSync
+except ImportError: BatchSync = None
 from .core.chain import Blockchain
 from .interfaces.vm import VMInterface
-from .modules.vm.evm import EVMRuntime
-from .modules.vm.wasm import WASMRuntime
 from .modules.vm.python_vm import PythonVM
+
+# Attempt to load other VMs if present in the ZIP, but don't hard-crash if missing.
+try:
+    from .modules.vm.evm import EVMRuntime
+except ImportError:
+    EVMRuntime = None
+
+try:
+    from .modules.vm.wasm import WASMRuntime
+except ImportError:
+    WASMRuntime = None
 
 class DependencyInjector:
     """
@@ -54,8 +80,8 @@ class DependencyInjector:
     }
     
     _runtime_map: Dict[str, Type[VMInterface]] = {
-        "evm": EVMRuntime,
-        "wasm": WASMRuntime,
+        "evm": EVMRuntime if EVMRuntime else PythonVM,
+        "wasm": WASMRuntime if WASMRuntime else PythonVM,
         "python": PythonVM
     }
 
@@ -90,6 +116,6 @@ class DependencyInjector:
         mode = self.config.get("runtime", "evm")
         cls = self._runtime_map.get(mode)
         if not cls:
-            print(f"Warning: Unknown runtime '{mode}', defaulting to EVM")
-            cls = EVMRuntime
+            print(f"Warning: Unknown runtime '{mode}', defaulting to PythonVM")
+            cls = PythonVM
         return cls()

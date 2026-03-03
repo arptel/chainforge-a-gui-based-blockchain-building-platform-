@@ -28,6 +28,7 @@ export default function CreateProjectPage() {
 
     const handleCreate = async () => {
         setLoading(true);
+        console.log("Submitting Config:", config);
         try {
             await axios.post("http://localhost:8000/projects/", {
                 name: projectName || "My Blockchain",
@@ -54,8 +55,8 @@ export default function CreateProjectPage() {
 
     // Helper to determine total steps based on path
     const getTotalSteps = () => {
-        // Updated to 8 steps to remove Deployment redundancy
-        return 8;
+        // Updated to 9 steps to include Gas & Fees
+        return 9;
     };
 
     const renderStep = () => {
@@ -89,6 +90,26 @@ export default function CreateProjectPage() {
                             />
                         </div>
                     </div>
+
+                    <div className="space-y-3 pt-4 border-t">
+                        <Label className="text-base">Security Configuration</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <SelectionCard
+                                title="Require Digital Signatures"
+                                description="Verify ECDSA signatures on all transactions. Essential for value transfers."
+                                icon={<Shield className="w-8 h-8 text-green-500" />}
+                                selected={config.requireSignature !== false}
+                                onClick={() => setConfig({ requireSignature: true })}
+                            />
+                            <SelectionCard
+                                title="Implicit Trust (No Signatures)"
+                                description="Accept all transactions. Suitable if an API Gateway handles authentication."
+                                icon={<FileKey className="w-8 h-8 text-gray-500" />}
+                                selected={config.requireSignature === false}
+                                onClick={() => setConfig({ requireSignature: false })}
+                            />
+                        </div>
+                    </div>
                 </div>
             );
         }
@@ -112,7 +133,7 @@ export default function CreateProjectPage() {
                 case 3: // Node Roles
                     return (
                         <div className="space-y-6">
-                            <h3 className="text-lg font-medium text-primary">Participating Node Roles <span className="text-xs text-muted-foreground ml-2 font-normal">(If skipped, defaults to Full Node)</span></h3>
+                            <h3 className="text-lg font-medium text-primary">Participating Node Roles</h3>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {['miner', 'full', 'light'].map((role: any) => (
                                     <div key={role}
@@ -137,7 +158,7 @@ export default function CreateProjectPage() {
                 case 4: // Runtime
                     return (
                         <div className="space-y-6">
-                            <h3 className="text-lg font-medium text-primary">Smart Contract Runtime <span className="text-xs text-muted-foreground ml-2 font-normal">(If skipped, defaults to EVM)</span></h3>
+                            <h3 className="text-lg font-medium text-primary">Smart Contract Runtime</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <SelectionCard title="WASM Runtime" description="WebAssembly for high performance contracts" icon={<Boxes className="w-8 h-8 text-indigo-500" />} selected={config.publicRuntime === 'wasm'} onClick={() => setConfig({ publicRuntime: 'wasm' })} />
                                 <SelectionCard title="EVM Compatible" description="Ethereum Virtual Machine compatibility" icon={<Layers className="w-8 h-8 text-slate-500" />} selected={config.publicRuntime === 'evm'} onClick={() => setConfig({ publicRuntime: 'evm' })} />
@@ -147,7 +168,7 @@ export default function CreateProjectPage() {
                 case 5: // Sync
                     return (
                         <div className="space-y-6">
-                            <h3 className="text-lg font-medium text-primary">Synchronization Mode <span className="text-xs text-muted-foreground ml-2 font-normal">(If skipped, defaults to Full Sync)</span></h3>
+                            <h3 className="text-lg font-medium text-primary">Synchronization Mode</h3>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <SelectionCard title="Full Sync" description="Download entire history" icon={<Database className="w-8 h-8 text-blue-500" />} selected={config.publicSyncMode === 'full'} onClick={() => setConfig({ publicSyncMode: 'full' })} />
                                 <SelectionCard title="Fast Sync" description="Download recent state only" icon={<Zap className="w-8 h-8 text-yellow-500" />} selected={config.publicSyncMode === 'fast'} onClick={() => setConfig({ publicSyncMode: 'fast' })} />
@@ -158,14 +179,16 @@ export default function CreateProjectPage() {
                 case 6: // Token
                     return (
                         <div className="space-y-6">
-                            <h3 className="text-lg font-medium text-primary">Network Economy <span className="text-xs text-muted-foreground ml-2 font-normal">(If skipped, defaults to Native Token)</span></h3>
+                            <h3 className="text-lg font-medium text-primary">Network Economy</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <SelectionCard title="Native Token" description="Built-in currency for fees & rewards" icon={<Coins className="w-8 h-8 text-amber-500" />} selected={config.publicToken === 'native'} onClick={() => setConfig({ publicToken: 'native' })} />
                                 <SelectionCard title="No Token" description="Free-for-all (Not recommended for public)" icon={<Lock className="w-8 h-8 text-gray-500" />} selected={config.publicToken === 'none'} onClick={() => setConfig({ publicToken: 'none' })} />
                             </div>
                         </div>
                     );
-                case 7: // Smart Contracts
+                case 7: // Gas & Fees
+                    return renderGasFees();
+                case 8: // Smart Contracts
                     return (
                         <div className="space-y-6">
                             <h3 className="text-lg font-medium text-primary">Smart Contracts</h3>
@@ -173,10 +196,11 @@ export default function CreateProjectPage() {
                             <SmartContractList
                                 contracts={config.smartContracts || []}
                                 onChange={(contracts) => setConfig({ smartContracts: contracts })}
+                                projectConfig={config}
                             />
                         </div>
                     );
-                case 8:
+                case 9:
                     return renderReview();
             }
         }
@@ -272,7 +296,7 @@ export default function CreateProjectPage() {
                     if (config.permissionedType === 'centralized') {
                         return (
                             <div className="space-y-6">
-                                <h3 className="text-lg font-medium text-primary">Replication Mode <span className="text-xs text-muted-foreground ml-2 font-normal">(If skipped, defaults to Full Sync)</span></h3>
+                                <h3 className="text-lg font-medium text-primary">Replication Mode</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <SelectionCard title="Real-Time" description="Immediate Replication" icon={<Timer className="w-8 h-8 text-purple-500" />} selected={config.centralizedSync === 'realtime'} onClick={() => setConfig({ centralizedSync: 'realtime' })} />
                                     <SelectionCard title="Snapshot" description="Periodic States" icon={<Camera className="w-8 h-8 text-pink-500" />} selected={config.centralizedSync === 'snapshot'} onClick={() => setConfig({ centralizedSync: 'snapshot' })} />
@@ -283,7 +307,7 @@ export default function CreateProjectPage() {
                     } else if (config.permissionedType === 'consortium') {
                         return (
                             <div className="space-y-6">
-                                <h3 className="text-lg font-medium text-primary">Synchronization <span className="text-xs text-muted-foreground ml-2 font-normal">(If skipped, defaults to Full Sync)</span></h3>
+                                <h3 className="text-lg font-medium text-primary">Synchronization</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <SelectionCard title="Full State" description="Full validation of all blocks" icon={<Database className="w-8 h-8 text-emerald-600" />} selected={config.consortiumSync === 'full'} onClick={() => setConfig({ consortiumSync: 'full' })} />
                                     <SelectionCard title="Snapshot" description="State snapshots + catchup" icon={<Timer className="w-8 h-8 text-orange-500" />} selected={config.consortiumSync === 'snapshot'} onClick={() => setConfig({ consortiumSync: 'snapshot' })} />
@@ -293,7 +317,9 @@ export default function CreateProjectPage() {
                         );
                     }
                     break;
-                case 7: // Smart Contracts
+                case 7: // Gas & Fees
+                    return renderGasFees();
+                case 8: // Smart Contracts
                     return (
                         <div className="space-y-6">
                             <h3 className="text-lg font-medium text-primary">Smart Contracts</h3>
@@ -301,14 +327,67 @@ export default function CreateProjectPage() {
                             <SmartContractList
                                 contracts={config.smartContracts || []}
                                 onChange={(contracts) => setConfig({ smartContracts: contracts })}
+                                projectConfig={config}
                             />
                         </div>
                     );
-                case 8:
+                case 9:
                     return renderReview();
             }
         }
 
+    };
+
+    const renderGasFees = () => {
+        return (
+            <div className="space-y-6">
+                <h3 className="text-lg font-medium text-primary">Transaction Fees & Gas</h3>
+                <p className="text-sm text-muted-foreground">Configure the economic cost and resource limits for executing transactions and smart contracts on your network.</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <SelectionCard
+                        title="Enable Gas Fees"
+                        description="Transactions cost tokens. Prevents spam and infinite loops."
+                        icon={<Coins className="w-8 h-8 text-amber-500" />}
+                        selected={config.enableGas === true}
+                        onClick={() => setConfig({ enableGas: true, minGasPrice: config.minGasPrice || 1, defaultGasLimit: config.defaultGasLimit || 100000 })}
+                    />
+                    <SelectionCard
+                        title="Gasless (Free)"
+                        description="No fees. Execution is free but still bounded by strict limits."
+                        icon={<Zap className="w-8 h-8 text-green-500" />}
+                        selected={config.enableGas === false}
+                        onClick={() => setConfig({ enableGas: false, minGasPrice: 0, defaultGasLimit: config.defaultGasLimit || 100000 })}
+                    />
+                </div>
+
+                {config.enableGas !== undefined && (
+                    <div className="space-y-4 p-4 border rounded-xl bg-card">
+                        <div className="space-y-2">
+                            <Label>Minimum Gas Price</Label>
+                            <Input
+                                type="number"
+                                value={config.minGasPrice || 0}
+                                onChange={(e) => setConfig({ minGasPrice: parseInt(e.target.value) || 0 })}
+                                disabled={!config.enableGas}
+                                className="font-mono"
+                            />
+                            <p className="text-xs text-muted-foreground">The minimum fee a user must pay per unit of gas to have their transaction processed by miners/validators.</p>
+                        </div>
+                        <div className="space-y-2 mt-4">
+                            <Label>Default Contract Gas Limit</Label>
+                            <Input
+                                type="number"
+                                value={config.defaultGasLimit || 100000}
+                                onChange={(e) => setConfig({ defaultGasLimit: parseInt(e.target.value) || 100000 })}
+                                className="font-mono"
+                            />
+                            <p className="text-xs text-muted-foreground">The absolute maximum number of operations a smart contract can execute before triggering an OutOfGas halt (Halting Problem protection).</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const renderReview = () => (
@@ -319,6 +398,10 @@ export default function CreateProjectPage() {
                     <div className="p-3 bg-background rounded-lg border">
                         <span className="text-muted-foreground block text-xs uppercase tracking-wider">Type</span>
                         <span className="font-medium capitalize">{config.networkType}</span>
+                    </div>
+                    <div className="p-3 bg-background rounded-lg border">
+                        <span className="text-muted-foreground block text-xs uppercase tracking-wider">Security</span>
+                        <span className="font-medium">{config.requireSignature !== false ? 'Signatures Required' : 'Implicit Trust'}</span>
                     </div>
                     {config.networkType === 'public' && (
                         <>
@@ -387,6 +470,41 @@ export default function CreateProjectPage() {
                             )}
                         </>
                     )}
+
+                    <div className="p-3 bg-background rounded-lg border col-span-2">
+                        <span className="text-muted-foreground block text-xs uppercase tracking-wider mb-2">Gas & Economy</span>
+                        <div className="grid grid-cols-3 gap-2">
+                            <div>
+                                <span className="text-xs text-muted-foreground block">Enabled</span>
+                                <span className="font-medium">{config.enableGas ? 'Yes' : 'No (Free)'}</span>
+                            </div>
+                            <div>
+                                <span className="text-xs text-muted-foreground block">Min Price</span>
+                                <span className="font-medium">{config.minGasPrice || 0}</span>
+                            </div>
+                            <div>
+                                <span className="text-xs text-muted-foreground block">Default Limit</span>
+                                <span className="font-medium">{config.defaultGasLimit || 100000}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-3 bg-background rounded-lg border col-span-2">
+                        <span className="text-muted-foreground block text-xs uppercase tracking-wider mb-2">Smart Contracts Configured</span>
+                        {config.smartContracts && config.smartContracts.length > 0 ? (
+                            <div className="flex flex-col gap-2 mt-2">
+                                {config.smartContracts.map(c => (
+                                    <div key={c.id} className="flex justify-between items-center bg-secondary/30 p-2 rounded text-sm">
+                                        <span className="font-medium">{c.name}</span>
+                                        <span className="text-xs uppercase text-muted-foreground">{c.type}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <span className="text-sm text-muted-foreground">No smart contracts configured.</span>
+                        )}
+                    </div>
+
                     <div className="p-3 bg-background rounded-lg border">
                         <span className="text-muted-foreground block text-xs uppercase tracking-wider">Project</span>
                         <span className="font-medium">{projectName || "My Blockchain"}</span>
@@ -428,19 +546,20 @@ export default function CreateProjectPage() {
 
         if (config.networkType === 'public') {
             switch (step) {
-                case 2: return !!config.publicConsensus; // Mandatory
-                case 3: return true; // Node Roles (Optional, default [] is fine)
+                case 2: return !!config.publicConsensus;
+                case 3: return !!config.publicNodeRoles && config.publicNodeRoles.length > 0;
                 case 4: return !!config.publicRuntime;
                 case 5: return !!config.publicSyncMode;
                 case 6: return !!config.publicToken;
-                case 7: return true; // Smart Contracts (Optional)
+                case 7: return config.enableGas !== undefined; // Gas Fees must be selected
+                case 8: return true; // Smart Contracts are optional
                 default: return true;
             }
         }
 
         if (config.networkType === 'permissioned') {
             switch (step) {
-                case 2: return !!config.permissionedType; // Mandatory
+                case 2: return !!config.permissionedType;
                 case 3: // Authority or Validators
                     if (config.permissionedType === 'centralized') return !!config.centralizedAuthority;
                     return !!config.consortiumValidatorStruct;
@@ -453,7 +572,8 @@ export default function CreateProjectPage() {
                 case 6: // Sync
                     if (config.permissionedType === 'centralized') return !!config.centralizedSync;
                     return !!config.consortiumSync;
-                case 7: return true; // Smart Contracts
+                case 7: return config.enableGas !== undefined; // Gas Fees must be selected
+                case 8: return true; // Smart Contracts are optional
                 default: return true;
             }
         }
@@ -461,35 +581,12 @@ export default function CreateProjectPage() {
     };
 
     // Helper to check if step is optional
-    // Adjusted logic: Most steps are now mandatory to ensure valid config, 
-    // but we can allow skipping for things that have smart defaults in backend?
-    // User requested: "for pages with imp features... user can't click next unless he selects... for not imp keep the name as skip"
     const isStepOptional = () => {
-        if (step === 1) return false;
-        // Let's define Optional steps specifically
-        if (config.networkType === 'public') {
-            // Consensus(2) is IMP. Roles(3) is IMP? No, user said "public/permissioned, centralised/decentralised" are IMP.
-            // Let's make Node Roles optional.
-            if (step === 3) return true;
-            // Runtime, Sync, Token, Deployment -> Optional? 
-            // Let's treat Sync, Token, Monitoring as optional features. 
-            // Consensus is mandatory.
-            return step >= 4;
-        }
-        if (config.networkType === 'permissioned') {
-            // Type(2) -> IMP
-            // Authority(3) -> IMP
-            // Consensus(4) -> IMP
-            // Access(5) -> IMP? Probably.
-            // Sync(6), Deployment(7) -> Optional
-            // Smart Contracts(8) -> Optional
-            return step >= 6;
-        }
         return false;
     };
 
     const handleNext = () => {
-        if (!isStepOptional() && !isStepValid()) return;
+        if (!isStepValid()) return;
         nextStep();
     }
 

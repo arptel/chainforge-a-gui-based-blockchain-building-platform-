@@ -17,6 +17,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            window.addEventListener('unhandledrejection', function(event) {
+                if (event.reason && typeof event.reason === 'object' && !event.reason.message && !event.reason.stack) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                } else if (event.reason && (event.reason.name === 'Canceled' || event.reason.message === 'Canceled')) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                }
+            }, true);
+            `
+        }} />
+      </head>
       <body className={inter.className}>
         <div className="relative flex min-h-screen flex-col">
           <Header />

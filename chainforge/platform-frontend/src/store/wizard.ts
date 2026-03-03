@@ -40,7 +40,15 @@ interface ChainConfig {
 
     // Common/Legacy (keeping for compatibility if needed, but likely replaced by above)
     nodeCount: number;
-    // templates: string[]; // detailed in paths? not explicitly, can keep generic
+    requireSignature?: boolean; // Toggle for digital signatures
+
+    // Gas & Fees
+    enableGas?: boolean;
+    minGasPrice?: number;
+    defaultGasLimit?: number;
+
+    // Sandbox Security
+    allowedBuiltins?: string[];
 
     // Smart Contracts
     smartContracts?: {
@@ -49,6 +57,7 @@ interface ChainConfig {
         type: 'python' | 'solidity';
         code: string;
         apiKey: string;
+        isSystem?: boolean;
     }[];
 }
 
@@ -66,6 +75,7 @@ interface WizardState {
 const initialConfig: ChainConfig = {
     networkType: "public", // Default to public to show first screen, but subsequent selections are undefined
     nodeCount: 4,
+    requireSignature: true, // Default to secure
     // No defaults for specific fields to force user selection
 };
 
@@ -82,7 +92,8 @@ export const useWizardStore = create<WizardState>((set) => ({
         return {
             config: {
                 networkType: type,
-                nodeCount: 4
+                nodeCount: 4,
+                requireSignature: true
             }
         };
     })

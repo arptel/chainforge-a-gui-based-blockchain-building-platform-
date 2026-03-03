@@ -37,6 +37,8 @@ class PythonVM(VMInterface):
         try:
             # We inject the state into the contract instance before calling
             contract.ctx = type('Context', (), {'state': state})()
+            # Also inject the caller securely
+            args["caller"] = tx.get("from")
             result = func(**args)
             return {"status": "success", "result": result}
         except Exception as e:

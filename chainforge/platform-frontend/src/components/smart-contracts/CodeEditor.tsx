@@ -5,11 +5,36 @@ interface CodeEditorProps {
     value: string;
     onChange: (value: string) => void;
     language: 'python' | 'solidity';
+    readOnly?: boolean;
 }
 
-export const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language }) => {
+export const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, language, readOnly = false }) => {
     const monaco = useMonaco();
     const editorRef = useRef<any>(null);
+    const [isMounted, setIsMounted] = React.useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+
+        // Suppress Monaco Editor's internal "Canceled" promise rejections
+        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+            if (event.reason && typeof event.reason === 'object') {
+                // Monaco often rejects with an object containing { name: 'Canceled' } or similar
+                // when models are disposed. We prevent the Next.js overlay for these.
+                if (event.reason.name === 'Canceled' || event.reason.message === 'Canceled') {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                } else if (!event.reason.message && !event.reason.stack) {
+                    // Generic [object Object] that Monaco sometimes throws on worker abort
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                }
+            }
+        };
+        // MUST use 'true' for capture phase to beat Next.js's global error overlay
+        window.addEventListener('unhandledrejection', handleUnhandledRejection, true);
+        return () => window.removeEventListener('unhandledrejection', handleUnhandledRejection, true);
+    }, []);
 
     useEffect(() => {
         try {
@@ -88,6 +113,20 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, languag
         }
     };
 
+    if (!isMounted) {
+        return (
+            <div className="relative font-mono text-sm border rounded-md overflow-hidden flex flex-col h-full min-h-[400px]">
+                <div className="bg-muted px-4 py-2 text-xs text-muted-foreground uppercase border-b flex justify-between">
+                    <span>{language}</span>
+                    <span>Editor</span>
+                </div>
+                <div className="flex-1 bg-zinc-950 pt-2 flex items-center justify-center text-muted-foreground">
+                    Loading editor...
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="relative font-mono text-sm border rounded-md overflow-hidden flex flex-col h-full min-h-[400px]">
             <div className="bg-muted px-4 py-2 text-xs text-muted-foreground uppercase border-b flex justify-between">
@@ -109,6 +148,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, languag
                         scrollBeyondLastLine: false,
                         automaticLayout: true,
                         tabSize: 4,
+                        readOnly: readOnly,
                     }}
                 />
             </div>

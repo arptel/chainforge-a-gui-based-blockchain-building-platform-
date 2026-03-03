@@ -1,0 +1,93 @@
+{
+    "networkType": "permissioned",
+    "nodeCount": 4,
+    "requireSignature": false,
+    "permissionedType": "consortium",
+    "consortiumValidatorStruct": "equal",
+    "consortiumConsensus": "pbft",
+    "consortiumIdentity": "ca",
+    "consortiumSync": "full",
+    "enableGas": false,
+    "minGasPrice": 0,
+    "defaultGasLimit": 100000,
+    "smartContracts": [
+        {
+            "id": "1000",
+            "name": "DataStore",
+            "type": "python",
+            "code": "class DataStore:\n    def __init__(self):\n        self.store = {}\n\n    def add(self, key, value):\n        if key in self.store:\n            raise Exception(\"Key already exists\")\n        self.store[key] = value\n        return True\n\n    def update(self, key, value):\n        if key not in self.store:\n            raise Exception(\"Key does not exist\")\n        self.store[key] = value\n        return True\n\n    def get(self, key):\n        return self.store.get(key)\n\n    def exists(self, key):\n        return key in self.store\n",
+            "apiKey": "sys_key_datastore",
+            "isSystem": true
+        },
+        {
+            "id": "1001",
+            "name": "Validation",
+            "type": "python",
+            "code": "class Validation:\n    def __init__(self):\n        self.rules = {}\n\n    def validate(self, payload):\n        if not isinstance(payload, dict):\n            return False\n        return True\n\n    def validateSignature(self, payload, signature, pub_key):\n        # Basic mock cryptographic wrapper\n        return True\n",
+            "apiKey": "sys_key_validation",
+            "isSystem": true
+        },
+        {
+            "id": "1002",
+            "name": "AccessControl",
+            "type": "python",
+            "code": "class AccessControl:\n    def __init__(self):\n        self.roles = {} # role -> list of addresses\n\n    def grantRole(self, role, address):\n        if role not in self.roles:\n            self.roles[role] = []\n        if address not in self.roles[role]:\n            self.roles[role].append(address)\n        return True\n\n    def revokeRole(self, role, address):\n        if role in self.roles and address in self.roles[role]:\n            self.roles[role].remove(address)\n        return True\n\n    def hasRole(self, role, address):\n        return role in self.roles and address in self.roles[role]\n",
+            "apiKey": "sys_key_accesscontrol",
+            "isSystem": true
+        },
+        {
+            "id": "1003",
+            "name": "IdentityRegistry",
+            "type": "python",
+            "code": "class IdentityRegistry:\n    def __init__(self):\n        self.identities = {}\n\n    def registerIdentity(self, address, metadata):\n        self.identities[address] = metadata\n        return True\n\n    def getIdentity(self, address):\n        return self.identities.get(address)\n",
+            "apiKey": "sys_key_identityregistry",
+            "isSystem": true
+        },
+        {
+            "id": "1004",
+            "name": "AuditLog",
+            "type": "python",
+            "code": "import time\n\nclass AuditLog:\n    def __init__(self):\n        self.logs = []\n\n    def logAction(self, actor, action):\n        entry = {\"timestamp\": time.time(), \"actor\": actor, \"action\": action}\n        self.logs.append(entry)\n        return True\n\n    def getLogs(self, limit=10, offset=0):\n        return self.logs[offset:offset+limit]\n",
+            "apiKey": "sys_key_auditlog",
+            "isSystem": true
+        },
+        {
+            "id": "1005",
+            "name": "ValidatorCouncil",
+            "type": "python",
+            "code": "class ValidatorCouncil:\n    def __init__(self):\n        self.validators = {} # address -> weight\n\n    def addValidator(self, address, weight=1):\n        self.validators[address] = weight\n        return True\n\n    def removeValidator(self, address):\n        if address in self.validators:\n            del self.validators[address]\n        return True\n\n    def getValidators(self):\n        return self.validators\n",
+            "apiKey": "sys_key_validatorcouncil",
+            "isSystem": true
+        },
+        {
+            "id": "1006",
+            "name": "MultiSig",
+            "type": "python",
+            "code": "class MultiSig:\n    def __init__(self):\n        self.proposals = {} # id -> proposal details\n\n    def propose(self, proposal_id, action_payload, required_sigs):\n        if proposal_id not in self.proposals:\n            self.proposals[proposal_id] = {\n                \"payload\": action_payload,\n                \"required\": required_sigs,\n                \"signatures\": [],\n                \"executed\": False\n            }\n        return True\n\n    def approve(self, proposal_id, address_sig):\n        if proposal_id in self.proposals:\n            prop = self.proposals[proposal_id]\n            if address_sig not in prop[\"signatures\"]:\n                prop[\"signatures\"].append(address_sig)\n        return True\n\n    def execute(self, proposal_id):\n        prop = self.proposals.get(proposal_id)\n        if prop and len(prop[\"signatures\"]) >= prop[\"required\"] and not prop[\"executed\"]:\n            prop[\"executed\"] = True\n            return True\n        raise Exception(\"Not ready for execution\")\n",
+            "apiKey": "sys_key_multisig",
+            "isSystem": true
+        },
+        {
+            "id": "1007",
+            "name": "CertificateAuthority",
+            "type": "python",
+            "code": "class CertificateAuthority:\n    def __init__(self):\n        self.certs = {}\n        self.revoked = []\n\n    def issueCert(self, cert_id, subject_data):\n        self.certs[cert_id] = subject_data\n        return True\n\n    def revokeCert(self, cert_id):\n        if cert_id not in self.revoked:\n            self.revoked.append(cert_id)\n        return True\n\n    def verifyCert(self, cert_id):\n        return cert_id in self.certs and cert_id not in self.revoked\n",
+            "apiKey": "sys_key_certificateauthority",
+            "isSystem": true
+        },
+        {
+            "id": "h4hscfu",
+            "name": "AccessControl",
+            "type": "python",
+            "code": "class AccessControl:\n    def __init__(self):\n        # Maps user_id -> list of roles e.g., [\"ISSUER\", \"VERIFIER\"]\n        self.roles = {}\n        # Simple admin identity\n        self.admin = \"system_admin\"\n        \n        # Pre-populate admin\n        self.roles[self.admin] = [\"ADMIN\"]\n\n    def grant_role(self, caller: str, user_id: str, role: str) -> dict:\n        \"\"\"Grants a role to a user. Only an ADMIN can grant roles.\"\"\"\n        caller_roles = self.roles.get(caller, [])\n        if \"ADMIN\" not in caller_roles and caller != self.admin:\n            return {\"error\": \"Unauthorized: Only ADMIN can grant roles\"}\n            \n        if user_id not in self.roles:\n            self.roles[user_id] = []\n            \n        role_upper = role.upper()\n        if role_upper not in self.roles[user_id]:\n            self.roles[user_id].append(role_upper)\n            \n        return {\"status\": \"success\", \"message\": f\"Role {role_upper} granted to {user_id}\"}\n\n    def revoke_role(self, caller: str, user_id: str, role: str) -> dict:\n        \"\"\"Revokes a role from a user. Only an ADMIN can revoke roles.\"\"\"\n        caller_roles = self.roles.get(caller, [])\n        if \"ADMIN\" not in caller_roles and caller != self.admin:\n            return {\"error\": \"Unauthorized: Only ADMIN can revoke roles\"}\n            \n        role_upper = role.upper()\n        if user_id in self.roles and role_upper in self.roles[user_id]:\n            self.roles[user_id].remove(role_upper)\n            return {\"status\": \"success\", \"message\": f\"Role {role_upper} revoked from {user_id}\"}\n            \n        return {\"error\": \"User does not have this role\"}\n\n    def has_role(self, caller: str, user_id: str, role: str) -> dict:\n        \"\"\"Checks if a user has a specific role. Anyone can check roles.\"\"\"\n        role_upper = role.upper()\n        user_roles = self.roles.get(user_id, [])\n        \n        has_it = role_upper in user_roles\n        return {\"status\": \"success\", \"has_role\": has_it, \"roles\": user_roles}\n    \n    def get_all_roles(self, caller: str, user_id: str) -> dict:\n        \"\"\"Returns all roles for a given user.\"\"\"\n        return {\"status\": \"success\", \"roles\": self.roles.get(user_id, [])}\n",
+            "apiKey": "sk_9he4zo5b82ovje5nlwiui"
+        },
+        {
+            "id": "7vjd6ku",
+            "name": " CertificateRegistry",
+            "type": "python",
+            "code": "class  CertificateRegistry:\n    def __init__(self):\n        # Maps cert_id -> { 'student_name': str, 'degree': str, 'year': int, 'issuer_id': str, 'is_revoked': bool }\n        self.certificates = {}\n\n    def issue_certificate(self, caller: str, cert_id: str, student_name: str, degree: str, year: int, issuer_id: str) -> dict:\n        \"\"\"\n        Issues a new certificate. \n        Note: The FastAPI backend MUST verify that 'issuer_id' has the 'ISSUER' role \n        via the AccessControl contract before calling this method.\n        \"\"\"\n        if cert_id in self.certificates:\n            return {\"error\": \"Certificate ID already exists\"}\n            \n        self.certificates[cert_id] = {\n            \"student_name\": student_name,\n            \"degree\": degree,\n            \"year\": year,\n            \"issuer_id\": issuer_id,\n            \"is_revoked\": False\n        }\n        \n        return {\"status\": \"success\", \"cert_id\": cert_id}\n\n    def revoke_certificate(self, caller: str, cert_id: str, requester_id: str) -> dict:\n        \"\"\"\n        Revokes a certificate. \n        The requester_id must be the original issuer or an authorized party.\n        \"\"\"\n        if cert_id not in self.certificates:\n            return {\"error\": \"Certificate not found\"}\n            \n        cert = self.certificates[cert_id]\n        \n        # Only the original issuer can revoke it\n        if cert[\"issuer_id\"] != requester_id:\n            return {\"error\": \"Unauthorized: Only the original issuer can revoke this certificate\"}\n            \n        if cert[\"is_revoked\"]:\n            return {\"error\": \"Certificate is already revoked\"}\n            \n        cert[\"is_revoked\"] = True\n        return {\"status\": \"success\", \"message\": \"Certificate revoked\"}\n\n    def verify_certificate(self, caller: str, cert_id: str) -> dict:\n        \"\"\"Verifies if a certificate is valid and not revoked.\"\"\"\n        if cert_id not in self.certificates:\n            return {\"status\": \"not_found\", \"is_valid\": False}\n            \n        cert = self.certificates[cert_id]\n        if cert[\"is_revoked\"]:\n            return {\"status\": \"revoked\", \"is_valid\": False}\n            \n        return {\"status\": \"valid\", \"is_valid\": True}\n\n    def get_certificate(self, caller: str, cert_id: str) -> dict:\n        \"\"\"Returns the full details of a certificate.\"\"\"\n        if cert_id not in self.certificates:\n            return {\"error\": \"Certificate not found\"}\n            \n        return {\"status\": \"success\", \"data\": self.certificates[cert_id]}\n",
+            "apiKey": "sk_9r9suqrmwe4e0ar5gvbe"
+        }
+    ]
+}
