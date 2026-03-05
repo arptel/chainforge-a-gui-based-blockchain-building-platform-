@@ -1,0 +1,15 @@
+Terminal 1:
+cd "c:\Users\ARTH PATEL\OneDrive\Desktop\ARTH\Sem-6\Blockchain\certificate_verification_system\chainforge_node"
+pip install -q -r requirements.txt
+python main.py --api-port 8080 --port 5000
+
+
+Terminal 2:
+cd "c:\Users\ARTH PATEL\OneDrive\Desktop\ARTH\Sem-6\Blockchain\certificate_verification_system\backend"
+pip install -q fastapi uvicorn pydantic pyjwt httpx
+uvicorn main:app --reload --port 8001
+
+Terminal 3:
+cd "c:\Users\ARTH PATEL\OneDrive\Desktop\ARTH\Sem-6\Blockchain\certificate_verification_system\frontend"
+npm install
+npm run dev -- --port 5174

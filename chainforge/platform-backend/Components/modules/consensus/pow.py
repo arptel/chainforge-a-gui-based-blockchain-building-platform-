@@ -7,7 +7,7 @@ class PoWConsensus(ConsensusInterface):
     def __init__(self, difficulty: int = 4):
         self.difficulty = difficulty
 
-    def propose_block(self, transactions: list[Dict[str, Any]]) -> Any:
+    def propose_block(self, transactions: list[Dict[str, Any]], previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Any:
         # Simplified for template purposes
         # In reality, this would construct a block and mine it
         pass

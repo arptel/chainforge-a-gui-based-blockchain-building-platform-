@@ -43,6 +43,7 @@ async def issue_certificate(req: IssueRequest, current_user: dict = Depends(requ
         # Send transaction to the running ChainForge node
         response = chainforge_client.execute_contract(
             user_address=current_user["address"],
+            private_key=current_user.get("private_key", ""),
             contract_name="CertificateRegistry",
             method_name="issue_certificate",
             params=payload
@@ -79,6 +80,7 @@ async def revoke_certificate(req: RevokeRequest, current_user: dict = Depends(re
     try:
         response = chainforge_client.execute_contract(
             user_address=current_user["address"],
+            private_key=current_user.get("private_key", ""),
             contract_name="CertificateRegistry",
             method_name="revoke_certificate",
             params=payload
@@ -149,3 +151,21 @@ async def get_certificate(cert_id: str):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail="Blockchain Node unreachable")
+
+
+@api_router.get("/issuers")
+async def get_issuers():
+    """
+    Public endpoint to get a mapping of blockchain addresses to issuer names.
+    """
+    from auth import MOCK_USERS
+    
+    # Map their blockchain address (public key) to a readable name
+    issuer_map = {}
+    for username, user_data in MOCK_USERS.items():
+        if "blockchain_address" in user_data and user_data["blockchain_address"]:
+            # Convert 'college_a' to 'College A'
+            readable_name = username.replace("_", " ").title()
+            issuer_map[user_data["blockchain_address"]] = readable_name
+            
+    return issuer_map

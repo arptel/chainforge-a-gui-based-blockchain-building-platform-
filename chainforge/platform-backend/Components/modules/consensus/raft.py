@@ -11,7 +11,7 @@ class RaftConsensus(ConsensusInterface):
         self.voted_for = None
         self.log = []
 
-    def propose_block(self, transactions: list[Dict[str, Any]]) -> Any:
+    def propose_block(self, transactions: list[Dict[str, Any]], previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Any:
         if self.state != "LEADER":
             raise Exception("Only leader can propose blocks")
         # Logic to append to log and replicate

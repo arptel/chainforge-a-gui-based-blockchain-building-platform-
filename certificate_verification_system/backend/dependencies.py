@@ -11,13 +11,14 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
-        address: str = payload.get("address")
+        user_address: str = payload.get("address")
         role: str = payload.get("role")
+        private_key: str = payload.get("private_key")
         
-        if username is None or address is None:
+        if username is None or role != "ISSUER":
             raise HTTPException(status_code=401, detail="Invalid authentication credentials")
         
-        return {"username": username, "address": address, "role": role}
+        return {"username": username, "address": user_address, "role": role, "private_key": private_key}
 
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")

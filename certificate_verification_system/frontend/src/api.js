@@ -40,4 +40,9 @@ export const getCertificate = async (certId) => {
     return response.data;
 };
 
+export const getIssuers = async () => {
+    const response = await api.get('/api/issuers');
+    return response.data;
+};
+
 export default api;

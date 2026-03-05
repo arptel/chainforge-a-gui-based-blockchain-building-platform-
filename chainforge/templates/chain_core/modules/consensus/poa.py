@@ -24,7 +24,7 @@ class PoAConsensus(ConsensusInterface):
             print(f"[PoA] REJECTED. Validator {validator} is not registered in NodeRegistry.")
             return False
 
-    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str) -> Block:
+    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Block:
         # PoA usually acts instantly for its designated block leader
         print(f"[PoA] Authority node sealing block {index}...")
         return Block(
@@ -32,7 +32,8 @@ class PoAConsensus(ConsensusInterface):
             transactions=transactions,
             timestamp=time.time(),
             previous_hash=previous_hash,
-            validator=miner_address
+            validator=miner_address,
+            state_root=state_root
         )
 
     def commit_block(self, block: Block) -> bool:

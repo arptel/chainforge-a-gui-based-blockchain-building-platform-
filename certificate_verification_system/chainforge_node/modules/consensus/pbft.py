@@ -17,7 +17,7 @@ class PBFTConsensus(ConsensusInterface):
         print(f"[PBFT] Validated 2/3 majority signatures for block {block.index}.")
         return True
 
-    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str) -> Block:
+    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Block:
         print(f"\n[PBFT] Initiating 3-Phase BFT Commit for Node {miner_address}...")
         
         # 1. Pre-Prepare (Broadcast Intent)
@@ -39,7 +39,8 @@ class PBFTConsensus(ConsensusInterface):
             transactions=transactions,
             timestamp=time.time(),
             previous_hash=previous_hash,
-            validator=miner_address
+            validator=miner_address,
+            state_root=state_root
         )
 
     def commit_block(self, block: Block) -> bool:

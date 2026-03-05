@@ -20,7 +20,7 @@ class PaxosConsensus(ConsensusInterface):
             print(f"[Paxos] Acceptor acknowledged promised ballot value.")
         return True
 
-    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str) -> Block:
+    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Block:
         if self.role != "proposer":
              # Wait a little to prevent console spam
              time.sleep(2)
@@ -40,7 +40,8 @@ class PaxosConsensus(ConsensusInterface):
             transactions=transactions,
             timestamp=time.time(),
             previous_hash=previous_hash,
-            validator=miner_address
+            validator=miner_address,
+            state_root=state_root
         )
 
     def commit_block(self, block: Block) -> bool:

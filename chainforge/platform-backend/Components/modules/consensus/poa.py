@@ -6,7 +6,7 @@ class PoAConsensus(ConsensusInterface):
     """
     Proof of Authority (POA) Consensus Implementation (Stub).
     """
-    def propose_block(self, transactions: list[Dict[str, Any]]) -> Any:
+    def propose_block(self, transactions: list[Dict[str, Any]], previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Any:
         print("[PoA] Proposing block with authorized signer...")
         time.sleep(0.1)
         return {"id": "block_hash", "txs": transactions, "proof": "authority_sig"}

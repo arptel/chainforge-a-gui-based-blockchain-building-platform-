@@ -16,7 +16,7 @@ class NoConsensus(ConsensusInterface):
         print(f"[None/Sandbox] Validated block {block.index} instantly. Sandbox mode active.")
         return True
 
-    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str) -> Block:
+    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Block:
         print(f"\n[None/Sandbox] Proposing block {index} instantly...")
         
         return Block(
@@ -24,7 +24,8 @@ class NoConsensus(ConsensusInterface):
             transactions=transactions,
             timestamp=time.time(),
             previous_hash=previous_hash,
-            validator=miner_address
+            validator=miner_address,
+            state_root=state_root
         )
 
     def commit_block(self, block: Block) -> bool:

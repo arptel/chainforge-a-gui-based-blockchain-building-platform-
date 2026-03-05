@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getCertificate, verifyCertificate } from '../api';
+import { getCertificate, verifyCertificate, getIssuers } from '../api';
 import { ShieldCheck, Calendar, User, Award, ShieldAlert } from 'lucide-react';
 
 export default function StudentView() {
@@ -10,6 +10,7 @@ export default function StudentView() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isValid, setIsValid] = useState(true);
+    const [issuersMap, setIssuersMap] = useState({});
 
     useEffect(() => {
         const fetchCert = async () => {
@@ -20,6 +21,13 @@ export default function StudentView() {
                 if (verifyRes.is_valid || verifyRes.status === "Revoked") {
                     const payload = await getCertificate(certId);
                     setData(payload.data);
+
+                    try {
+                        const map = await getIssuers();
+                        setIssuersMap(map);
+                    } catch (err) {
+                        console.error("Failed to load issuer map:", err);
+                    }
                 } else {
                     setError('Certificate not found on the blockchain.');
                 }
@@ -107,7 +115,8 @@ export default function StudentView() {
 
                         <div className="mt-8 text-center">
                             <span className="text-xs text-neutral-600 block mb-1">Signed by Authority</span>
-                            <p className="text-xs font-mono text-neutral-500 truncate">{data.issuer_id}</p>
+                            <p className="text-lg font-medium text-white mb-1">{issuersMap[data.issuer_id] || "Unknown College"}</p>
+                            <p className="text-xs font-mono text-neutral-500 truncate" title={data.issuer_id}>Key: {data.issuer_id}</p>
                         </div>
 
                     </div>

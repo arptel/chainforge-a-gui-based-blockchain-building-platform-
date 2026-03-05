@@ -7,7 +7,7 @@ class ConsensusInterface(ABC):
     """
 
     @abstractmethod
-    def propose_block(self, transactions: list[Dict[str, Any]]) -> Any:
+    def propose_block(self, transactions: list[Dict[str, Any]], previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Any:
         """
         Propose a new block to the network.
         """

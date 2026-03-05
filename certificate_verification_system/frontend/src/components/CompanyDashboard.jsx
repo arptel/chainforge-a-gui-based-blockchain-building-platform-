@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { verifyCertificate, getCertificate } from '../api';
+import { useState, useEffect } from 'react';
+import { verifyCertificate, getCertificate, getIssuers } from '../api';
 import { Search, BadgeCheck, XCircle, AlertTriangle, Calendar, Award, User, Building } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,7 +8,21 @@ export default function CompanyDashboard() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [certData, setCertData] = useState(null);
+    const [issuersMap, setIssuersMap] = useState({});
     const navigate = useNavigate();
+
+    useEffect(() => {
+        // Fetch issuer mappings on component mount
+        const fetchIssuers = async () => {
+            try {
+                const map = await getIssuers();
+                setIssuersMap(map);
+            } catch (err) {
+                console.error("Failed to load issuer map:", err);
+            }
+        };
+        fetchIssuers();
+    }, []);
 
     const handleVerify = async (e) => {
         e.preventDefault();
@@ -71,8 +85,8 @@ export default function CompanyDashboard() {
             {/* Result Display */}
             {result && (
                 <div className={`w-full p-8 rounded-2xl border backdrop-blur-sm transition-all animate-in zoom-in-95 duration-300 ${result.isValid
-                        ? 'bg-emerald-950/30 border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]'
-                        : 'bg-red-950/30 border-red-500/30 shadow-[0_0_50px_-12px_rgba(239,68,68,0.3)]'
+                    ? 'bg-emerald-950/30 border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]'
+                    : 'bg-red-950/30 border-red-500/30 shadow-[0_0_50px_-12px_rgba(239,68,68,0.3)]'
                     }`}>
                     <div className="flex items-start gap-4">
                         <div className="mt-1">
@@ -107,7 +121,8 @@ export default function CompanyDashboard() {
                                     </div>
                                     <div>
                                         <span className="text-xs text-emerald-500/70 font-bold uppercase tracking-wider mb-1 block flex items-center gap-1"><Building className="w-3 h-3" /> Issuing Authority</span>
-                                        <p className="text-lg font-medium text-white font-mono text-sm break-all">{certData.issuer_id}</p>
+                                        <p className="text-lg font-medium text-white">{issuersMap[certData.issuer_id] || "Unknown College"}</p>
+                                        <p className="text-xs font-mono text-neutral-500 mt-1 truncate" title={certData.issuer_id}>Key: {certData.issuer_id.substring(0, 10)}...</p>
                                     </div>
                                 </div>
                             )}

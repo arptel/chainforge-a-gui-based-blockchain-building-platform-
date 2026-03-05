@@ -37,7 +37,7 @@ class RaftConsensus(ConsensusInterface):
             return True
         return True
 
-    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str) -> Block:
+    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Block:
         if not self.is_leader:
             print("[Raft] Cannot propose: This node is a Follower. Forwarding to Leader.")
             return None # Cancel mining attempt
@@ -51,7 +51,8 @@ class RaftConsensus(ConsensusInterface):
             transactions=transactions,
             timestamp=time.time(),
             previous_hash=previous_hash,
-            validator=miner_address
+            validator=miner_address,
+            state_root=state_root
         )
 
     def commit_block(self, block: Block) -> bool:

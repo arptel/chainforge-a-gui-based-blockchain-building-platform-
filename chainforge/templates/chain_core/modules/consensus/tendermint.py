@@ -14,7 +14,7 @@ class TendermintConsensus(ConsensusInterface):
         print(f"[Tendermint] Checked active validator set. Validated +2/3 signatures for block {block.index}.")
         return True
 
-    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str) -> Block:
+    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Block:
         print(f"\n[Tendermint] Starting Round 0 for Height {index}...")
         
         # Phase 1: Propose
@@ -34,7 +34,8 @@ class TendermintConsensus(ConsensusInterface):
             transactions=transactions,
             timestamp=time.time(),
             previous_hash=previous_hash,
-            validator=miner_address
+            validator=miner_address,
+            state_root=state_root
         )
 
     def commit_block(self, block: Block) -> bool:

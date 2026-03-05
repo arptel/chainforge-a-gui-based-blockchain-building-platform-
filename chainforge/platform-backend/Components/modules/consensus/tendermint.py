@@ -7,7 +7,7 @@ class TendermintConsensus(ConsensusInterface):
     Tendermint-style Consensus Implementation (Stub).
     Fast finality BFT.
     """
-    def propose_block(self, transactions: list[Dict[str, Any]]) -> Any:
+    def propose_block(self, transactions: list[Dict[str, Any]], previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Any:
         print("[Tendermint] Proposer broadcasting block...")
         time.sleep(0.1)
         return {"id": "block_hash", "txs": transactions, "round": 1}

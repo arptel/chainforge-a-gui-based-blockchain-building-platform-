@@ -23,7 +23,7 @@ class PoSConsensus(ConsensusInterface):
             print(f"[PoS] Block {block.index} REJECTED. Validator {validator} has 0 stake!")
             return False
 
-    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str) -> Block:
+    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Block:
         # In a generic PoS, it waits for its specific time slot.
         # We mock this behavior by simply waiting 1 second before proposing.
         print(f"[PoS] Selected as block proposer. Waiting for slot duration...")
@@ -34,7 +34,8 @@ class PoSConsensus(ConsensusInterface):
             transactions=transactions,
             timestamp=time.time(),
             previous_hash=previous_hash,
-            validator=miner_address
+            validator=miner_address,
+            state_root=state_root
         )
 
     def commit_block(self, block: Block) -> bool:

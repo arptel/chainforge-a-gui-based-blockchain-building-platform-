@@ -6,7 +6,7 @@ class PBFTConsensus(ConsensusInterface):
     """
     Practical Byzantine Fault Tolerance (PBFT) Consensus Implementation (Stub).
     """
-    def propose_block(self, transactions: list[Dict[str, Any]]) -> Any:
+    def propose_block(self, transactions: list[Dict[str, Any]], previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Any:
         print("[PBFT] Leader broadcasting pre-prepare message...")
         time.sleep(0.2)
         return {"id": "block_hash", "txs": transactions, "proof": "quorum_sig"}
