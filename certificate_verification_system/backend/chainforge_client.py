@@ -26,11 +26,12 @@ class ChainForgeClient:
         tx_string = json.dumps(tx_copy, sort_keys=True)
         return tx_string.encode('utf-8')
 
-    def execute_contract(self, user_address: str, private_key: str, contract_name: str, method_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    def execute_contract(self, user_address: str, private_key: str, contract_name: str, method_name: str, params: Dict[str, Any], node_url: Optional[str] = None) -> Dict[str, Any]:
         """
         Constructs a transaction, generates a deterministic cryptographic signature using
         the ECDSA private key, and submits it directly into the Blockchain's Mempool.
         """
+        target_url = node_url if node_url else self.base_url
         contract_id = {"AccessControl": "1002", "CertificateRegistry": "7vjd6ku"}.get(contract_name)
         if not contract_id:
             return {"error": f"Unknown contract {contract_name}"}
@@ -61,7 +62,7 @@ class ChainForgeClient:
             
         try:
             # Post directly to the native /transactions mempool route on the node
-            response = requests.post(f"{self.base_url}/transactions", json=tx)
+            response = requests.post(f"{target_url}/transactions", json=tx)
             response.raise_for_status()
             
             # ChainForge Python nodes configured with --role full mind pending transactions periodically.
@@ -69,7 +70,7 @@ class ChainForgeClient:
             for _ in range(15):
                 time.sleep(1)
                 try:
-                    blocks_resp = requests.get(f"{self.base_url}/blocks")
+                    blocks_resp = requests.get(f"{target_url}/blocks")
                     blocks_resp.raise_for_status()
                     for block in blocks_resp.json():
                         for mined_tx in block.get("transactions", []):
@@ -83,17 +84,19 @@ class ChainForgeClient:
             print(f"Error communicating with ChainForge Node: {e}")
             return {"error": str(e), "status": "failed"}
 
-    def query_contract(self, contract_name: str, method_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    def query_contract(self, contract_name: str, method_name: str, params: Dict[str, Any], node_url: Optional[str] = None) -> Dict[str, Any]:
         """
         Queries the blockchain state by iterating over the blocks directly and computing 
         the CertificateRegistry immutable state dynamically. 
         This completely removes the mock database!
         """
+        target_url = node_url if node_url else self.base_url
+
         cert_id = params.get("cert_id")
         
         # Pull the entire chain ledger to trace the true history of the certificate
         try:
-            response = requests.get(f"{self.base_url}/blocks")
+            response = requests.get(f"{target_url}/blocks")
             response.raise_for_status()
             blocks = response.json()
         except Exception as e:

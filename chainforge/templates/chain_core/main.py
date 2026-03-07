@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--api-port", type=int, default=8000, help="API Port")
     parser.add_argument("--peers", type=str, default="", help="Comma separated list of peers")
     parser.add_argument("--role", type=str, default="full", choices=["full", "light", "miner"], help="Node role in the network")
+    parser.add_argument("--db-path", type=str, default=None, help="Path to SQLite database for persisting blocks and state")
     args = parser.parse_args()
 
     print(f"Starting Blockchain Node on port {args.port}...")
@@ -87,7 +88,8 @@ def main():
         runtime=runtime, 
         role=args.role, 
         require_signature=require_sig,
-        min_gas_price=config.get("min_gas_price", 0)
+        min_gas_price=config.get("min_gas_price", 0),
+        db_path=args.db_path
     )
 
     # 3. Sync (depends on Chain, Network)
@@ -114,6 +116,10 @@ def main():
 
     # Start Network
     # asyncio.run(network.start_server())
+    
+    # Load persistence from disk before starting active mining loops
+    if args.db_path:
+        chain.load_from_disk()
     
     # Simple mining loop for demo (Only full nodes and dedicated miners should mine)
     if args.role in ['full', 'miner']:

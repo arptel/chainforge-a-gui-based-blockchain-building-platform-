@@ -17,14 +17,14 @@ class ChainBuilder:
         import sys
         import os
         
-        backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        if backend_dir not in sys.path:
-            sys.path.append(backend_dir)
+        core_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "templates", "chain_core"))
+        if core_dir not in sys.path:
+            sys.path.append(core_dir)
             
-        from Components.modules.default_smart_contracts.Contract_registry import SYSTEM_CONTRACTS
+        from modules.smart_contracts.Contract_registry import SYSTEM_CONTRACTS
         
         def generate_dummy_code(name, methods):
-            contract_file_path = os.path.join(backend_dir, "Components", "modules", "default_smart_contracts", f"{name}.py")
+            contract_file_path = os.path.join(core_dir, "modules", "smart_contracts", f"{name}.py")
             if os.path.exists(contract_file_path):
                 with open(contract_file_path, "r", encoding="utf-8") as f:
                     return f.read()

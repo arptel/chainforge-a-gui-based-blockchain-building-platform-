@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { verifyCertificate, getCertificate, getIssuers } from '../api';
-import { Search, BadgeCheck, XCircle, AlertTriangle, Calendar, Award, User, Building } from 'lucide-react';
+import { getIssuers } from '../api';
+import { SPVLightClient } from '../spv/LightClient';
+import { Search, BadgeCheck, XCircle, AlertTriangle, Calendar, Award, User, Building, Cpu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
+const spvNode = new SPVLightClient(["http://localhost:8080", "http://localhost:8081"]);
 
 export default function CompanyDashboard() {
     const [certId, setCertId] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [loadingStep, setLoadingStep] = useState('');
     const [result, setResult] = useState(null);
     const [certData, setCertData] = useState(null);
     const [issuersMap, setIssuersMap] = useState({});
@@ -28,23 +31,29 @@ export default function CompanyDashboard() {
         e.preventDefault();
         if (!certId) return;
 
-        setLoading(true);
+        setLoadingStep('Synchronizing Block Headers via P2P...');
         setResult(null);
         setCertData(null);
-        try {
-            const { is_valid, status, message } = await verifyCertificate(certId);
-            setResult({ isValid: is_valid, status, message });
 
-            // If valid, optionally fetch details
-            if (is_valid) {
-                const payload = await getCertificate(certId);
-                setCertData(payload.data);
+        try {
+            await spvNode.syncHeaders();
+            await new Promise(r => setTimeout(r, 400));
+
+            setLoadingStep('Mathematically Verifying Merkle Proof...');
+            await new Promise(r => setTimeout(r, 400));
+
+            const verifyRes = await spvNode.verifyCertificate(certId);
+            setResult({ isValid: verifyRes.isValid, status: verifyRes.status, message: verifyRes.message });
+
+            // If valid, extract trustless payload
+            if (verifyRes.isValid || verifyRes.status === "Revoked") {
+                setCertData(verifyRes.data);
             }
 
         } catch (err) {
-            setResult({ isValid: false, status: 'Error', message: 'Unable to connect to blockchain node' });
+            setResult({ isValid: false, status: 'Error', message: 'Unable to connect to decentralized SPV network' });
         } finally {
-            setLoading(false);
+            setLoadingStep('');
         }
     };
 
@@ -57,7 +66,7 @@ export default function CompanyDashboard() {
 
             <h1 className="text-4xl font-bold mb-4 text-center">Company Verification Gateway</h1>
             <p className="text-neutral-400 text-center mb-10 max-w-lg">
-                Enter a Blockchain Certificate ID to verify a candidate's academic credentials directly from the decentralized registry.
+                Enter a Blockchain Certificate ID to verify a candidate's academic credentials securely using a trustless P2P Light Node.
             </p>
 
             <form onSubmit={handleVerify} className="w-full relative mb-12">
@@ -69,21 +78,33 @@ export default function CompanyDashboard() {
                     value={certId}
                     onChange={(e) => setCertId(e.target.value)}
                     placeholder="e.g. CERT-A1B2C3D4"
-                    className="block w-full pl-12 pr-32 py-4 bg-neutral-900/80 border border-white/10 rounded-2xl text-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-mono"
+                    className="block w-full pl-12 pr-40 py-4 bg-neutral-900/80 border border-white/10 rounded-2xl text-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-mono shadow-2xl"
                 />
-                <div className="absolute inset-y-2 right-2 flex items-center">
+                <div className="absolute inset-y-2 right-2 flex items-center pr-1">
                     <button
                         type="submit"
-                        disabled={loading}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-colors disabled:opacity-50"
+                        disabled={!!loadingStep}
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
                     >
-                        {loading ? 'Querying...' : 'Verify'}
+                        {loadingStep ? (
+                            <>
+                                <Cpu className="w-4 h-4 animate-spin" />
+                                {loadingStep.includes('Sync') ? 'Syncing...' : 'Verifying...'}
+                            </>
+                        ) : 'Web3 Verify'}
                     </button>
                 </div>
             </form>
 
+            {/* Loading Indicator beneath bar */}
+            {loadingStep && (
+                <div className="mb-8 text-blue-400 animate-pulse font-mono text-sm tracking-widest uppercase">
+                    ► {loadingStep}
+                </div>
+            )}
+
             {/* Result Display */}
-            {result && (
+            {result && !loadingStep && (
                 <div className={`w-full p-8 rounded-2xl border backdrop-blur-sm transition-all animate-in zoom-in-95 duration-300 ${result.isValid
                     ? 'bg-emerald-950/30 border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]'
                     : 'bg-red-950/30 border-red-500/30 shadow-[0_0_50px_-12px_rgba(239,68,68,0.3)]'
@@ -99,8 +120,8 @@ export default function CompanyDashboard() {
                             )}
                         </div>
                         <div className="flex-1">
-                            <h3 className={`text-2xl font-bold mb-1 ${result.isValid ? 'text-emerald-400' : 'text-red-400'}`}>
-                                {result.status}
+                            <h3 className={`text-2xl font-bold mb-1 flex items-center gap-2 ${result.isValid ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {result.status} {result.isValid && <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 ml-2 font-mono tracking-widest">SPV PROVED</span>}
                             </h3>
                             <p className="text-neutral-300 font-mono text-sm mb-4">ID: {certId}</p>
                             <p className="text-neutral-400">{result.message}</p>
@@ -133,3 +154,4 @@ export default function CompanyDashboard() {
         </div>
     );
 }
+

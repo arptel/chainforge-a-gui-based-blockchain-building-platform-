@@ -1,26 +1,43 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getCertificate, verifyCertificate, getIssuers } from '../api';
-import { ShieldCheck, Calendar, User, Award, ShieldAlert } from 'lucide-react';
+import { getIssuers } from '../api';
+import { SPVLightClient } from '../spv/LightClient';
+import { ShieldCheck, Calendar, User, Award, ShieldAlert, Cpu } from 'lucide-react';
+
+// Instantiate SPV Light Node globally for this session
+const spvNode = new SPVLightClient(["http://localhost:8080", "http://localhost:8081"]);
 
 export default function StudentView() {
     const { certId } = useParams();
     const navigate = useNavigate();
     const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loadingStep, setLoadingStep] = useState('Initializing SPV Light Node...');
     const [error, setError] = useState('');
-    const [isValid, setIsValid] = useState(true);
+    const [statusData, setStatusData] = useState({ isValid: false, status: '', message: '' });
     const [issuersMap, setIssuersMap] = useState({});
 
     useEffect(() => {
-        const fetchCert = async () => {
+        const verifyTrustlessly = async () => {
             try {
-                const verifyRes = await verifyCertificate(certId);
-                setIsValid(verifyRes.is_valid);
+                // Step 1: Connect to the network
+                setLoadingStep('Synchronizing Block Headers via P2P...');
+                await spvNode.syncHeaders();
 
-                if (verifyRes.is_valid || verifyRes.status === "Revoked") {
-                    const payload = await getCertificate(certId);
-                    setData(payload.data);
+                // Optional delay to let user see SPV is working!
+                await new Promise(r => setTimeout(r, 600));
+
+                // Step 2: Request Proof
+                setLoadingStep('Requesting Cryptographic Merkle Proof...');
+                await new Promise(r => setTimeout(r, 600));
+
+                // Step 3: Mathmatically verify
+                setLoadingStep('Mathematically Verifying Hash Integrity...');
+                const verifyRes = await spvNode.verifyCertificate(certId);
+                setStatusData(verifyRes);
+
+                if (verifyRes.isValid || verifyRes.status === "Revoked") {
+                    // The data is now guaranteed authentic directly from the SPV check! 
+                    setData(verifyRes.data);
 
                     try {
                         const map = await getIssuers();
@@ -29,21 +46,33 @@ export default function StudentView() {
                         console.error("Failed to load issuer map:", err);
                     }
                 } else {
-                    setError('Certificate not found on the blockchain.');
+                    setError(verifyRes.message || 'Certificate not found on the blockchain.');
                 }
             } catch (err) {
-                setError('Error reading from blockchain node.');
+                console.error(err);
+                setError(err.message || 'Failed to sync with the decentralized network.');
             } finally {
-                setLoading(false);
+                setLoadingStep('');
             }
         };
-        fetchCert();
+        verifyTrustlessly();
     }, [certId]);
 
-    if (loading) {
+    if (loadingStep) {
         return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
+                <div className="relative w-24 h-24 flex items-center justify-center">
+                    <div className="absolute inset-0 border-4 border-indigo-500/30 rounded-full"></div>
+                    <div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    <Cpu className="w-8 h-8 text-indigo-400 animate-pulse" />
+                </div>
+                <div className="text-center">
+                    <h3 className="text-xl font-bold text-white mb-2">Web3 Verification in Progress</h3>
+                    <p className="text-indigo-300 font-mono text-sm tracking-wide bg-indigo-500/10 px-4 py-2 rounded-lg border border-indigo-500/20 shadow-inner">
+                        <span className="animate-pulse mr-2">▶</span>
+                        {loadingStep}
+                    </p>
+                </div>
             </div>
         );
     }
@@ -64,7 +93,7 @@ export default function StudentView() {
     return (
         <div className="max-w-4xl mx-auto py-8">
             {/* Decorative Document Wrapper */}
-            <div className="relative p-1 rounded-[2rem] bg-gradient-to-br from-indigo-500/20 via-blue-500/10 to-transparent">
+            <div className="relative p-1 rounded-[2rem] bg-gradient-to-br from-indigo-500/20 via-blue-500/10 to-transparent shadow-2xl">
                 <div className="relative bg-neutral-950 p-8 md:p-16 rounded-[1.85rem] border border-white/5 mx-auto overflow-hidden">
 
                     {/* Watermark */}
@@ -75,9 +104,10 @@ export default function StudentView() {
                     {/* Certificate Content */}
                     <div className="relative z-10 text-center space-y-8">
                         <div className="flex justify-center mb-8">
-                            {isValid ? (
-                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium">
-                                    <ShieldCheck className="w-5 h-5" /> Blockchain Verified Authentic
+                            {statusData.isValid ? (
+                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium tracking-wide shadow-[0_0_15px_rgba(52,211,153,0.1)]">
+                                    <ShieldCheck className="w-5 h-5" />
+                                    <span>TRUSTLESS SPV VALIDATION: SUCCESS</span>
                                 </div>
                             ) : (
                                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 font-medium tracking-wide">
@@ -113,10 +143,10 @@ export default function StudentView() {
                             </div>
                         </div>
 
-                        <div className="mt-8 text-center">
-                            <span className="text-xs text-neutral-600 block mb-1">Signed by Authority</span>
+                        <div className="mt-8 text-center bg-white/5 p-4 rounded-xl border border-white/5 inline-block min-w-[50%]">
+                            <span className="text-xs text-indigo-400 uppercase tracking-widest block mb-1 font-semibold">Cryptographically Signed & Verified</span>
                             <p className="text-lg font-medium text-white mb-1">{issuersMap[data.issuer_id] || "Unknown College"}</p>
-                            <p className="text-xs font-mono text-neutral-500 truncate" title={data.issuer_id}>Key: {data.issuer_id}</p>
+                            <p className="text-xs font-mono text-neutral-500 truncate" title={data.issuer_id}>{data.issuer_id}</p>
                         </div>
 
                     </div>
@@ -125,3 +155,4 @@ export default function StudentView() {
         </div>
     );
 }
+

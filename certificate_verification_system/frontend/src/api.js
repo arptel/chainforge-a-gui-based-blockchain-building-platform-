@@ -30,15 +30,7 @@ export const revokeCertificate = async (certId) => {
     return response.data;
 };
 
-export const verifyCertificate = async (certId) => {
-    const response = await api.get(`/api/verify/${certId}`);
-    return response.data;
-};
 
-export const getCertificate = async (certId) => {
-    const response = await api.get(`/api/certificate/${certId}`);
-    return response.data;
-};
 
 export const getIssuers = async () => {
     const response = await api.get('/api/issuers');

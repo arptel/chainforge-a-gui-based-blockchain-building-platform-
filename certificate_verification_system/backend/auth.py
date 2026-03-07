@@ -26,13 +26,15 @@ MOCK_USERS = {
         "password": "password123",
         "blockchain_address": "college_a_address", # Will be overwritten dynamically
         "private_key": "",
-        "role": "ISSUER"
+        "role": "ISSUER",
+        "node_url": "http://localhost:8080" # Maps to Node A
     },
     "college_b": {
         "password": "password123",
         "blockchain_address": "college_b_address",
         "private_key": "",
-        "role": "ISSUER"
+        "role": "ISSUER",
+        "node_url": "http://localhost:8081" # Maps to Node B
     }
 }
 
@@ -69,7 +71,13 @@ async def login(req: LoginRequest):
     # Generate JWT containing their blockchain address identity
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": req.username, "address": user["blockchain_address"], "role": user["role"], "private_key": user["private_key"]}, 
+        data={
+            "sub": req.username, 
+            "address": user["blockchain_address"], 
+            "role": user["role"], 
+            "private_key": user["private_key"],
+            "node_url": user["node_url"]
+        }, 
         expires_delta=access_token_expires
     )
     

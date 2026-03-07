@@ -46,7 +46,8 @@ async def issue_certificate(req: IssueRequest, current_user: dict = Depends(requ
             private_key=current_user.get("private_key", ""),
             contract_name="CertificateRegistry",
             method_name="issue_certificate",
-            params=payload
+            params=payload,
+            node_url=current_user.get("node_url")
         )
         
         if response.get("error"):
@@ -83,74 +84,36 @@ async def revoke_certificate(req: RevokeRequest, current_user: dict = Depends(re
             private_key=current_user.get("private_key", ""),
             contract_name="CertificateRegistry",
             method_name="revoke_certificate",
-            params=payload
+            params=payload,
+            node_url=current_user.get("node_url")
         )
         
         if response.get("error"):
             raise HTTPException(status_code=400, detail=response["error"])
             
-        time.sleep(1)
+        time.sleep(1) # Wait for potential mining / consensus delay
+        
+        # Verify if the revocation transaction was actually authorized and applied
+        verification = chainforge_client.query_contract(
+            contract_name="CertificateRegistry",
+            method_name="verify_certificate",
+            params={"caller": "public", "cert_id": req.cert_id},
+            node_url=current_user.get("node_url")
+        )
+        
+        if verification.get("status") != "revoked":
+            raise HTTPException(status_code=403, detail="Revocation failed: Unauthorized sender or invalid certificate.")
             
         return {
             "status": "success",
             "message": f"Certificate {req.cert_id} revoked successfully."
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Blockchain Node Error: {str(e)}")
 
 
-@api_router.get("/verify/{cert_id}")
-async def verify_certificate(cert_id: str):
-    """
-    Public endpoint to verify a certificate's status.
-    """
-    try:
-        # Read-only query to the blockchain
-        response = chainforge_client.query_contract(
-            contract_name="CertificateRegistry",
-            method_name="verify_certificate",
-            params={"caller": "public", "cert_id": cert_id}
-        )
-        
-        if response.get("error"):
-            # Handle standard error cases
-            pass
-            
-        if response.get("status") == "not_found":
-            return {"is_valid": False, "status": "Not Found", "message": "This certificate does not exist on the blockchain."}
-        
-        if response.get("status") == "revoked":
-            return {"is_valid": False, "status": "Revoked", "message": "This certificate was revoked by the issuer."}
-            
-        return {"is_valid": True, "status": "Valid", "message": "Certificate is valid."}
-        
-    except Exception as e:
-        # If the ChainForge node isn't running yet, we return a mock response for the sake of frontend dev
-        return {"is_valid": False, "status": "Error", "message": "Blockchain Node unreachable"}
-
-
-@api_router.get("/certificate/{cert_id}")
-async def get_certificate(cert_id: str):
-    """
-    Public endpoint to read a certificate's data.
-    """
-    try:
-        response = chainforge_client.query_contract(
-            contract_name="CertificateRegistry",
-            method_name="get_certificate",
-            params={"caller": "public", "cert_id": cert_id}
-        )
-        
-        if response.get("error"):
-            raise HTTPException(status_code=404, detail="Certificate not found")
-            
-        return {
-            "status": "success",
-            "data": response.get("data", {})
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Blockchain Node unreachable")
 
 
 @api_router.get("/issuers")
