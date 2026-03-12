@@ -18,7 +18,7 @@ class P2PNetwork(NetworkInterface):
         self.port = port
         
         # Build our own public URI for gossip (assuming localhost for demo)
-        self.my_uri = f"ws://localhost:{api_port}/ws"
+        self.my_uri = f"ws://127.0.0.1:{api_port}/ws"
         # Optional: Add myself to known_peers to avoid dialing myself if gossiped back
         self.known_peers.add(self.my_uri)
         
@@ -143,9 +143,14 @@ class P2PNetwork(NetworkInterface):
                     print(f"[P2P] Successfully connected OUT to {uri}")
                     self.active_connections.add((ws, loop))
                     
-                    # Immediately tell this peer who we are so they can dial us back or gossip us
+                    # Say hello to this specific peer
                     hello_msg = json.dumps({"type": "PEER_DISCOVERY", "data": self.my_uri})
                     await ws.send(hello_msg)
+                    
+                    # Auto-trigger blockchain sync now that we have a peer!
+                    if self.sync_module and hasattr(self.sync_module, 'sync_chain'):
+                        print(f"[P2P] Scheduling initial sync via newly connected peer {uri}...")
+                        loop.call_later(2.0, self.sync_module.sync_chain)
                     
                     # Listen indefinitely to whatever this peer sends us
                     while True:

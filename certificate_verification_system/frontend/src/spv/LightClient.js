@@ -1,8 +1,9 @@
 export class SPVLightClient {
+    // Basic SPV verification via REST APIs. In real app, this uses WebSockets or custom binary protocol.
     constructor(nodeUrls) {
         // Ideally connect to multiple to find the longest chain
-        this.nodes = nodeUrls || ["http://localhost:8080", "http://localhost:8081"];
-        this.headers = [];
+        this.nodes = nodeUrls || ["http://127.0.0.1:8080", "http://127.0.0.1:8081"];
+        this.headers = new Map(); // blockIndex -> BlockHeader
     }
 
     /**
@@ -103,8 +104,64 @@ export class SPVLightClient {
         return currentHash === expectedRoot;
     }
 
+    async verifyTransaction(txHash) {
+        if (this.headers.length === 0) await this.syncHeaders();
+
+        let proofData = null;
+        for (const url of this.nodes) {
+            try {
+                const res = await fetch(`${url}/proof/tx/${txHash}`);
+                if (res.ok) {
+                    proofData = await res.json();
+                    break;
+                }
+            } catch (err) { }
+        }
+
+        if (!proofData) {
+            return {
+                isValid: false,
+                status: "Not Found",
+                message: "Transaction hash not found on the blockchain."
+            };
+        }
+
+        const blockHeader = this.headers.find(h => h.index === proofData.block_index);
+        if (!blockHeader) {
+            return {
+                isValid: false,
+                status: "Error",
+                message: "Transaction block index missing from verified headers."
+            };
+        }
+
+        if (blockHeader.merkle_root !== proofData.merkle_root) {
+            return {
+                isValid: false,
+                status: "Error",
+                message: "Node supplied a fake Merkle Root."
+            };
+        }
+
+        const isProofValid = await this._verifyMerkleProof(proofData.tx, proofData.proof, blockHeader.merkle_root);
+        if (!isProofValid) {
+            return {
+                isValid: false,
+                status: "Tampered",
+                message: "CRYPTOGRAPHIC FAILURE: Merkle Proof is mathematically invalid!"
+            };
+        }
+
+        return {
+            isValid: true,
+            status: "Valid",
+            message: "Cryptographically verified via SPV Merkle Proof.",
+            tx: proofData.tx
+        };
+    }
+
     /**
-     * 4. Public API: Completely Trustless Certificate Verification
+     * Public API: Completely Trustless Certificate Verification
      */
     async verifyCertificate(certId) {
         // Step 1: Ensure headers are synced

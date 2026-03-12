@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/header";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{
           __html: `
@@ -33,10 +34,17 @@ export default function RootLayout({
         }} />
       </head>
       <body className={inter.className}>
-        <div className="relative flex min-h-screen flex-col">
-          <Header />
-          <div className="flex-1">{children}</div>
-        </div>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <div className="relative flex min-h-screen flex-col">
+            <Header />
+            <div className="flex-1">{children}</div>
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );

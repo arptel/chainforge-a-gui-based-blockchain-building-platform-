@@ -92,6 +92,9 @@ def main():
         db_path=args.db_path
     )
 
+    # 2b. Give the network a reference to the chain so it can process incoming P2P messages
+    network.set_chain(chain)
+
     # 3. Sync (depends on Chain, Network)
     sync = di.get_sync(chain, network)
 
@@ -115,8 +118,13 @@ def main():
     api_thread.start()
 
     # Start Network
-    # asyncio.run(network.start_server())
-    
+    import asyncio
+    def run_network():
+        asyncio.run(network.start_server())
+        
+    network_thread = threading.Thread(target=run_network)
+    network_thread.daemon = True
+    network_thread.start()    
     # Load persistence from disk before starting active mining loops
     if args.db_path:
         chain.load_from_disk()

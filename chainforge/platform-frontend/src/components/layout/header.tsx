@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useAuthStore } from "@/store/auth"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function Header() {
     const { isAuthenticated, logout, user } = useAuthStore()
@@ -46,6 +47,7 @@ export default function Header() {
                                 <Link href="/register"><Button size="sm">Get Started</Button></Link>
                             </>
                         )}
+                        <ThemeToggle />
                     </nav>
                 </div>
             </div>

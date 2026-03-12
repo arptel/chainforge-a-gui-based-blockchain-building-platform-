@@ -23,6 +23,7 @@ class PythonVM(VMInterface):
 
     def __init__(self, default_gas_limit: int = 100000):
         self.default_gas_limit = default_gas_limit
+        self.contracts = {}
 
     def deploy_contract(self, code, state):
         print(f"[PythonVM] Deploying contract with {len(code)} bytes.")
@@ -100,8 +101,12 @@ class PythonVM(VMInterface):
                 func = getattr(contract_instance, method)
                 try:
                      print(f"[PythonVM] Executing pre-deployed {contract_id}.{method} with caller: {sender}")
-                     # The smart contracts are written expecting 'caller' as the first arg automatically
-                     result = func(caller=sender, **args)
+                     import inspect
+                     if "state" in inspect.signature(func).parameters:
+                         result = func(caller=sender, state=state, **args)
+                     else:
+                         result = func(caller=sender, **args)
+                     print(f"[PythonVM] Result: {result}")
                      print(f"[PythonVM] Result: {result}")
                      
                      if isinstance(result, dict) and "error" in result:

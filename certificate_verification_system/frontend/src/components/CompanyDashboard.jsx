@@ -4,7 +4,7 @@ import { SPVLightClient } from '../spv/LightClient';
 import { Search, BadgeCheck, XCircle, AlertTriangle, Calendar, Award, User, Building, Cpu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const spvNode = new SPVLightClient(["http://localhost:8080", "http://localhost:8081"]);
+const spvNode = new SPVLightClient(["http://127.0.0.1:8080", "http://127.0.0.1:8081"]);
 
 export default function CompanyDashboard() {
     const [certId, setCertId] = useState('');

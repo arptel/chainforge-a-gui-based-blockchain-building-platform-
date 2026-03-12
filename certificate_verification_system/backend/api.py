@@ -2,7 +2,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from dependencies import require_issuer
-from chainforge_client import chainforge_client
+from chainforge_sdk import Client as ChainForgeClient
 import time
 
 api_router = APIRouter(prefix="/api", tags=["certificate"])
@@ -40,28 +40,28 @@ async def issue_certificate(req: IssueRequest, current_user: dict = Depends(requ
     }
     
     try:
-        # Send transaction to the running ChainForge node
-        response = chainforge_client.execute_contract(
+        # Instantiate the auto-generated SDK client
+        client = ChainForgeClient(current_user.get("node_url"))
+        
+        # The beautiful 1-line auto-SDK call!
+        response = client.CertificateRegistry.issue_certificate(
             user_address=current_user["address"],
             private_key=current_user.get("private_key", ""),
-            contract_name="CertificateRegistry",
-            method_name="issue_certificate",
-            params=payload,
-            node_url=current_user.get("node_url")
+            cert_id=cert_id,
+            student_name=req.student_name,
+            degree=req.degree,
+            year=req.year,
+            issuer_id=current_user["address"]
         )
         
         if response.get("error"):
             raise HTTPException(status_code=400, detail=response["error"])
             
-        # Simulate mining/consensus delay for realism in the demo
-        time.sleep(1)
-            
         return {
             "status": "success",
             "message": "Certificate issued successfully on the blockchain",
             "cert_id": cert_id,
-            "transaction_hash": f"0x{uuid.uuid4().hex}", # Mock tx hash
-            "block_number": 1042 # Mock block
+            "transaction": response.get("tx")
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Blockchain Node Error: {str(e)}")
@@ -79,37 +79,22 @@ async def revoke_certificate(req: RevokeRequest, current_user: dict = Depends(re
     }
     
     try:
-        response = chainforge_client.execute_contract(
+        client = ChainForgeClient(current_user.get("node_url"))
+        
+        response = client.CertificateRegistry.revoke_certificate(
             user_address=current_user["address"],
             private_key=current_user.get("private_key", ""),
-            contract_name="CertificateRegistry",
-            method_name="revoke_certificate",
-            params=payload,
-            node_url=current_user.get("node_url")
+            cert_id=req.cert_id,
+            requester_id=current_user["address"]
         )
         
         if response.get("error"):
             raise HTTPException(status_code=400, detail=response["error"])
             
-        time.sleep(1) # Wait for potential mining / consensus delay
-        
-        # Verify if the revocation transaction was actually authorized and applied
-        verification = chainforge_client.query_contract(
-            contract_name="CertificateRegistry",
-            method_name="verify_certificate",
-            params={"caller": "public", "cert_id": req.cert_id},
-            node_url=current_user.get("node_url")
-        )
-        
-        if verification.get("status") != "revoked":
-            raise HTTPException(status_code=403, detail="Revocation failed: Unauthorized sender or invalid certificate.")
-            
         return {
             "status": "success",
             "message": f"Certificate {req.cert_id} revoked successfully."
         }
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Blockchain Node Error: {str(e)}")
 

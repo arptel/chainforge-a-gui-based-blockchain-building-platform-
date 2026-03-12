@@ -27,14 +27,14 @@ MOCK_USERS = {
         "blockchain_address": "college_a_address", # Will be overwritten dynamically
         "private_key": "",
         "role": "ISSUER",
-        "node_url": "http://localhost:8080" # Maps to Node A
+        "node_url": "http://127.0.0.1:8080" # Maps to Node A
     },
     "college_b": {
         "password": "password123",
         "blockchain_address": "college_b_address",
         "private_key": "",
         "role": "ISSUER",
-        "node_url": "http://localhost:8081" # Maps to Node B
+        "node_url": "http://127.0.0.1:8081" # Maps to Node B
     }
 }
 

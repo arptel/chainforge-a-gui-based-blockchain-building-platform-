@@ -28,40 +28,38 @@
 
 @layer base {
   :root {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
+    --background: 220 40% 96%; /* Soft cool blue/gray background */
+    --foreground: 222.2 47.4% 11.2%;
 
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
+    --card: 220 40% 99%; /* Very faint cool tint for cards instead of pure white */
+    --card-foreground: 222.2 47.4% 11.2%;
 
-    --popover: 224 71% 4%;
-    --popover-foreground: 213 31% 91%;
+    --popover: 220 40% 99%;
+    --popover-foreground: 222.2 47.4% 11.2%;
 
-    --primary: 210 100% 52%;
-    /* Vibrant Blue */
+    --primary: 221.2 65% 45%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 222 47% 11%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 220 30% 90%; /* Slightly deeper cool secondary */
+    --secondary-foreground: 222.2 47.4% 11.2%;
 
-    --muted: 223 47% 11%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 220 30% 90%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 220 30% 90%;
+    --accent-foreground: 222.2 47.4% 11.2%;
 
-    --destructive: 0 63% 31%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
-    --ring: 210 100% 52%;
+    --border: 220 30% 86%; /* Cool tinted border */
+    --input: 220 30% 86%;
+    --ring: 221.2 65% 45%;
 
     --radius: 0.75rem;
   }
 
   .dark {
-    /* Same as root for now, default to dark theme feel */
     --background: 224 71% 4%;
     --foreground: 213 31% 91%;
     --card: 224 71% 4%;
@@ -80,7 +78,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 216 34% 17%;
     --input: 216 34% 17%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 210 100% 52%;
   }
 }
 
@@ -91,6 +89,9 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  .dark body {
     background-image: radial-gradient(at 50% 0%, hsl(222, 47%, 15%) 0px, transparent 50%),
       radial-gradient(at 100% 0%, hsl(210, 100%, 10%) 0px, transparent 50%);
     background-attachment: fixed;

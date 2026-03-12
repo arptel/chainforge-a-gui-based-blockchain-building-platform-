@@ -84,15 +84,30 @@ class Blockchain:
         print(f"Mining {len(pending)} transactions...")
         
         # 1. Simulate state execution to find the resulting state root
-        # Create a temporary copy of the current state
         simulated_state = copy.deepcopy(self.state)
+        valid_pending = []
+        failed_pending = []
+        
         if self.runtime:
             for tx in pending:
                 try:
-                    self.runtime.execute_transaction(tx, simulated_state)
+                    if self.runtime.execute_transaction(tx, simulated_state):
+                        valid_pending.append(tx)
+                    else:
+                        failed_pending.append(tx)
                 except Exception:
-                    pass
-                    
+                    failed_pending.append(tx)
+        else:
+            valid_pending = pending
+            
+        if failed_pending:
+            print(f"Dropping {len(failed_pending)} failed transactions from mempool.")
+            self.mempool.remove(failed_pending)
+            
+        pending = valid_pending
+        if not pending:
+            return False
+
         # Calculate the state root from the simulated state
         state_snapshot = json.dumps(
             {k: simulated_state[k] for k in sorted(simulated_state)},

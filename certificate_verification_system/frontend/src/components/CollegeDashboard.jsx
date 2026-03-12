@@ -21,7 +21,8 @@ export default function CollegeDashboard() {
         setIssueStatus(null);
         try {
             const res = await issueCertificate(formData.studentName, formData.degree, formData.year);
-            setIssueStatus({ type: 'success', msg: `Success! Tx Hash: ${res.transaction_hash.substring(0, 10)}... | Cert ID: ${res.cert_id}` });
+            const txData = res.transaction || {};
+            setIssueStatus({ type: 'success', msg: `Success! Cert ID: ${res.cert_id} (Tx: ${txData.status || 'Verified'})` });
             setRecentCerts([...recentCerts, { ...formData, certId: res.cert_id }]);
             setFormData({ studentName: '', degree: 'B.S. Computer Science', year: new Date().getFullYear() });
         } catch (err) {

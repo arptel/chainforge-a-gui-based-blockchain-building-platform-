@@ -200,28 +200,8 @@ class ChainBuilder:
         return bio.getvalue()
 
     def _generate_sdk_client(self, contracts):
-        code = """import requests
+        code = """from .base_client import ChainForgeBaseClient, SmartContract
 from .config import API_BASE_URL
-
-class SmartContract:
-    def __init__(self, contract_id, api_key):
-        self.contract_id = contract_id
-        self.api_key = api_key
-        self.base_url = f"{API_BASE_URL}/api/v1/contracts/execute/{contract_id}"
-
-    def _call(self, method, **kwargs):
-        headers = {"x-api-key": self.api_key}
-        payload = {"args": kwargs}
-        response = requests.post(f"{self.base_url}/{method}", json=payload, headers=headers)
-        if response.status_code == 200:
-            return response.json().get("result")
-        else:
-            raise Exception(f"Error {response.status_code}: {response.text}")
-
-    def __getattr__(self, name):
-        def method(**kwargs):
-            return self._call(name, **kwargs)
-        return method
 
 """
         # Generate wrapper classes for each contract
@@ -230,38 +210,33 @@ class SmartContract:
                 safe_name = "".join(x for x in c['name'] if x.isalnum() or x == "_")
                 code += f"""
 class {safe_name}Wrapper(SmartContract):
-    def __init__(self):
-        super().__init__("{c['id']}", "{c['apiKey']}")
+    def __init__(self, base_client):
+        super().__init__("{c['id']}", base_client)
 
-    # Note: We can't statically know methods without parsing AST, 
-    # so we use __getattr__ for dynamic method calls or generate specific ones if we parsed it.
-    # For now, we'll use __getattr__ to catch any method call and forward it.
-    
     def __getattr__(self, name):
-        def method(**kwargs):
-            return self._call(name, **kwargs)
+        def method(user_address: str, private_key: str, **kwargs):
+            return self.execute(user_address, private_key, name, **kwargs)
         return method
 """
 
         code += """
-class Client:
+class Client(ChainForgeBaseClient):
     def __init__(self, base_url=None):
-        if base_url:
-            global API_BASE_URL
-            API_BASE_URL = base_url
+        super().__init__(base_url if base_url else API_BASE_URL)
 """
         for c in contracts:
             safe_name = "".join(x for x in c['name'] if x.isalnum() or x == "_")
             if c['type'] == 'python':
-                code += f"        self.{safe_name} = {safe_name}Wrapper()\n"
+                code += f"        self.{safe_name} = {safe_name}Wrapper(self)\n"
             elif c['type'] == 'solidity':
-                # Solidity contracts use a generic wrapper in this MVP
-                code += f"        self.{safe_name} = SmartContract('{c['id']}', '{c['apiKey']}')\n"
+                code += f"        self.{safe_name} = SmartContract('{c['id']}', self)\n"
 
         return code
 
     def _generate_js_sdk_client(self, contracts):
-        code = """class SmartContract {
+        code = """import { SPVLightClient } from './base_client.js';
+
+class SmartContract {
     constructor(contractId, apiKey, baseUrl) {
         this.contractId = contractId;
         this.apiKey = apiKey;
@@ -302,13 +277,14 @@ function createContractProxy(contractId, apiKey, baseUrl) {
     });
 }
 
-export class ChainForgeClient {
-    constructor(baseUrl = "http://localhost:8000") {
-        this.baseUrl = baseUrl;
+export class ChainForgeClient extends SPVLightClient {
+    constructor(spvNodeUrls = ["http://localhost:8080"], restBaseUrl = "http://localhost:8000") {
+        super(spvNodeUrls);
+        this.restBaseUrl = restBaseUrl;
 """
         for c in contracts:
             safe_name = "".join(x for x in c['name'] if x.isalnum() or x == "_")
-            code += f'        this.{safe_name} = createContractProxy("{c["id"]}", "{c["apiKey"]}", this.baseUrl);\n'
+            code += f'        this.{safe_name} = createContractProxy("{c["id"]}", "{c["apiKey"]}", this.restBaseUrl);\n'
         
         code += """    }
 }

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 from core.chain import Blockchain
@@ -37,6 +37,23 @@ def run(chain: Blockchain, port: int):
         chain.add_transaction(tx)
         return {"status": "received"}
 
+    # --- P2P WebSocket Endpoint ---
+    @app.websocket("/ws")
+    async def websocket_peer_endpoint(websocket: WebSocket):
+        await websocket.accept()
+        if network_instance:
+            network_instance.add_incoming_connection(websocket)
+            try:
+                while True:
+                    data = await websocket.receive_text()
+                    response = network_instance._handle_incoming_message(data, sender_ws=websocket)
+                    if response:
+                        await websocket.send_text(response)
+            except Exception:
+                pass
+            finally:
+                network_instance.remove_incoming_connection(websocket)
+
     # --- SPV Light Node Endpoints ---
 
     @app.get("/headers")
@@ -54,6 +71,25 @@ def run(chain: Blockchain, port: int):
             }
             for b in chain.chain
         ]
+
+    @app.get("/proof/tx/{tx_hash}")
+    def get_tx_proof(tx_hash: str):
+        """
+        Returns the transaction and Merkle proof for any successfully mined transaction hash.
+        (Added to align with universal SDKs)
+        """
+        for block in reversed(chain.chain):
+            for i, tx in enumerate(block.transactions):
+                if _hash_tx(tx) == tx_hash:
+                    proof = generate_merkle_proof(block.transactions, i)
+                    return {
+                        "tx": tx,
+                        "tx_hash": tx_hash,
+                        "block_index": block.index,
+                        "proof": proof,
+                        "merkle_root": block.merkle_root
+                    }
+        raise HTTPException(status_code=404, detail="Transaction hash not found on the blockchain")
 
     @app.get("/proof/cert/{cert_id}")
     def get_cert_proof(cert_id: str):

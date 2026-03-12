@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 from core.chain import Blockchain
@@ -37,6 +37,23 @@ def run(chain: Blockchain, port: int):
         chain.add_transaction(tx)
         return {"status": "received"}
 
+    # --- P2P WebSocket Endpoint ---
+    @app.websocket("/ws")
+    async def websocket_peer_endpoint(websocket: WebSocket):
+        await websocket.accept()
+        if network_instance:
+            network_instance.add_incoming_connection(websocket)
+            try:
+                while True:
+                    data = await websocket.receive_text()
+                    response = network_instance._handle_incoming_message(data, sender_ws=websocket)
+                    if response:
+                        await websocket.send_text(response)
+            except Exception:
+                pass
+            finally:
+                network_instance.remove_incoming_connection(websocket)
+
     # --- SPV Light Node Endpoints ---
 
     @app.get("/headers")
@@ -55,41 +72,23 @@ def run(chain: Blockchain, port: int):
             for b in chain.chain
         ]
 
-    @app.get("/proof/cert/{cert_id}")
-    def get_cert_proof(cert_id: str):
+    @app.get("/proof/tx/{tx_hash}")
+    def get_tx_proof(tx_hash: str):
         """
-        Returns the transaction and Merkle proof for the most recent
-        interaction with a specific certificate ID.
+        Returns the transaction and Merkle proof for any successfully mined transaction hash.
         """
-        import json
-        # Search backwards to find the latest tx modifying this cert_id
         for block in reversed(chain.chain):
             for i, tx in enumerate(block.transactions):
-                if tx.get("type") == "contract_call":
-                    raw_args = tx.get("args", {})
-                    
-                    # Safely parse args whether it's a dict or a JSON string (sent by certain network utilities)
-                    args = {}
-                    if isinstance(raw_args, dict):
-                        args = raw_args
-                    elif isinstance(raw_args, str):
-                        try:
-                            args = json.loads(raw_args)
-                        except json.JSONDecodeError:
-                            pass
-
-                    # Standard check for CertificateRegistry
-                    if args.get("cert_id") == cert_id:
-                        proof = generate_merkle_proof(block.transactions, i)
-                        return {
-                            "cert_id": cert_id,
-                            "tx": tx,
-                            "tx_hash": _hash_tx(tx),
-                            "block_index": block.index,
-                            "proof": proof,
-                            "merkle_root": block.merkle_root
-                        }
-        raise HTTPException(status_code=404, detail="Certificate transaction not found on the blockchain")
+                if _hash_tx(tx) == tx_hash:
+                    proof = generate_merkle_proof(block.transactions, i)
+                    return {
+                        "tx": tx,
+                        "tx_hash": tx_hash,
+                        "block_index": block.index,
+                        "proof": proof,
+                        "merkle_root": block.merkle_root
+                    }
+        raise HTTPException(status_code=404, detail="Transaction hash not found on the blockchain")
 
     contract_routes.set_chain(chain)
     app.include_router(contract_routes.router, prefix="/api/v1/contracts", tags=["Smart Contracts"])

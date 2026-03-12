@@ -16,7 +16,7 @@ Start-Sleep -Seconds 4
 
 # 2. Start Blockchain Node B (College B)
 Write-Host "[2/4] Starting ChainForge Node B (College B)..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$CurrentDir\chainforge_node'; Write-Host 'Starting Node B on port 8081 / 5001 peered to Node A...'; python main.py --api-port 8081 --port 5001 --peers 127.0.0.1:5000 --db-path ../data/node_b.sqlite"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$CurrentDir\chainforge_node'; Write-Host 'Starting Node B on port 8081 / 5001 peered to Node A...'; python main.py --api-port 8081 --port 5001 --peers 127.0.0.1:8080 --db-path ../data/node_b.sqlite"
 
 # Wait a moment for Node B to connect
 Start-Sleep -Seconds 3

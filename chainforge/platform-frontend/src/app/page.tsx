@@ -15,7 +15,7 @@ export default function Home() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
             >
-              <h1 className="font-heading text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+              <h1 className="font-heading text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight bg-gradient-to-r dark:from-white dark:to-gray-500 from-gray-900 to-gray-500 bg-clip-text text-transparent">
                 Build Your Own Blockchain <br /> in Minutes
               </h1>
             </motion.div>

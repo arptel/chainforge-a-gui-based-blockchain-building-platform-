@@ -132,20 +132,7 @@ export default function ProjectDetailsPage() {
                         </div>
                     </Card>
 
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-lg flex items-center"><Activity className="mr-2 h-5 w-5 text-green-500" /> System Status</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-center space-x-2 text-sm">
-                                <span className="relative flex h-3 w-3">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                                </span>
-                                <span className="font-medium text-green-600">Configuration Ready</span>
-                            </div>
-                        </CardContent>
-                    </Card>
+
                 </div>
 
                 {/* Right Column: Configuration Details */}

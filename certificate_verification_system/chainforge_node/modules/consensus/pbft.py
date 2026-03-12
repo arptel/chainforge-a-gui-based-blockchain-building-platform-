@@ -21,16 +21,16 @@ class PBFTConsensus(ConsensusInterface):
         print(f"\n[PBFT] Initiating 3-Phase BFT Commit for Node {miner_address}...")
         
         # 1. Pre-Prepare (Broadcast Intent)
-        print(f"[PBFT] 🔵 Phase 1: Casting Pre-Prepare proposal to peers...")
+        print(f"[PBFT] [Phase 1] Casting Pre-Prepare proposal to peers...")
         time.sleep(0.5) # Simulate network propagation latency
         
         # 2. Prepare (Wait for 2/3 peer responses)
         # Normally: self.network.broadcast(...) and wait for peers to reply
-        print(f"[PBFT] 🟡 Phase 2: Awaiting 'Prepare' votes from >66% of network...")
+        print(f"[PBFT] [Phase 2] Awaiting 'Prepare' votes from >66% of network...")
         time.sleep(0.5) 
         
         # 3. Commit
-        print(f"[PBFT] 🟢 Phase 3: >66% Prepare threshold reached! Broadcasting 'Commit'.")
+        print(f"[PBFT] [Phase 3] >66% Prepare threshold reached! Broadcasting 'Commit'.")
         time.sleep(0.2)
         print(f"[PBFT] Consensus achieved. Appending block locally.")
         

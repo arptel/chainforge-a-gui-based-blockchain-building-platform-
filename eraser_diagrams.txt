@@ -1,0 +1,98 @@
+```eraser
+// 1. Architecture Diagram (Based strictly on ChainForge codebase)
+
+// We use Eraser's customization block to force all nodes to have the large floating icon style!
+STYLE {
+  labelPosition: bottom
+}
+
+CONTROL PLANE Platform [icon: cloud] {
+  Web Dashboard NextJS [icon: monitor]
+  Smart Contract Editor [icon: code]
+  Platform Backend FastAPI [icon: server]
+  Projects Database [icon: database]
+  Config Validator [icon: check-circle]
+  Node Generator Builder [icon: file-plus]
+}
+
+DATA PLANE Generated Network [icon: cloud-lightning] {
+  Blockchain Node [icon: server]
+  
+  CHAIN CORE Node Modules [icon: box] {
+    Network Layer P2P [icon: radio]
+    Sync Manager [icon: refresh-cw]
+    Mempool [icon: activity]
+    Consensus PoS PoW [icon: check-square]
+    Smart Contract VM [icon: terminal]
+    Ledger Storage [icon: hard-drive]
+  }
+}
+
+Exported Node Package [icon: download]
+
+// Control Plane Relationships
+Web Dashboard NextJS > Platform Backend FastAPI: API requests
+Smart Contract Editor > Platform Backend FastAPI: AST Code validation
+Platform Backend FastAPI > Projects Database: store configs
+Platform Backend FastAPI > Config Validator: verify setup
+Config Validator > Node Generator Builder: trigger build
+Node Generator Builder > Exported Node Package: assemble ZIP
+
+// Deployment Relationship
+Exported Node Package > Blockchain Node: User downloads and runs
+
+// Node Internal Architecture
+Blockchain Node > CHAIN CORE Node Modules
+Network Layer P2P > Sync Manager: peer data
+Sync Manager > Mempool: tx forwarding
+Mempool > Smart Contract VM: execute tx logic
+Smart Contract VM > Consensus PoS PoW: state transition
+Consensus PoS PoW > Ledger Storage: commit blocks
+```
+
+---
+
+```eraser
+// 2. Logical Design Diagram (Based on actual ChainForge Codeflow)
+
+// Force the large floating icon style natively for all nodes
+STYLE {
+  labelPosition: bottom
+}
+
+// --- Generation Nodes ---
+Set Node Config [icon: sliders]
+Write Smart Contract [icon: edit]
+Validate API Request [icon: check-circle]
+Load Core Templates [icon: folder]
+Inject Custom Modules [icon: file-plus]
+Build Node Package [icon: package]
+
+// --- Execution Nodes ---
+Node Startup [icon: log-in]
+P2P Discovery [icon: users]
+Chain Sync [icon: download-cloud]
+Receive Transaction [icon: plus-circle]
+Validate TX and Sig [icon: shield]
+Add to Mempool [icon: list]
+Assemble Block Consensus [icon: cpu]
+Execute VM State [icon: terminal]
+Append to Local Ledger [icon: database]
+
+// --- Generation Flow ---
+Set Node Config > Validate API Request
+Write Smart Contract > Validate API Request
+Validate API Request > Load Core Templates: If valid
+Load Core Templates > Inject Custom Modules
+Inject Custom Modules > Build Node Package
+
+// --- Node Execution Flow ---
+Node Startup > P2P Discovery
+P2P Discovery > Chain Sync
+Chain Sync > Receive Transaction: Network mapped
+Receive Transaction > Validate TX and Sig
+Validate TX and Sig > Add to Mempool: If valid
+Add to Mempool > Assemble Block Consensus: Selected
+Assemble Block Consensus > Execute VM State
+Execute VM State > Append to Local Ledger
+```
