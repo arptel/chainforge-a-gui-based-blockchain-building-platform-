@@ -128,7 +128,14 @@ class Blockchain:
                 validator=miner_address,
                 state_root=simulated_state_root
             )
-            
+
+        # Some consensus implementations (e.g., Raft/Paxos) may choose not to propose a block
+        # if this node is not the leader/proposer. In that case, they return None.
+        # We must be robust to that and avoid crashes.
+        if new_block is None:
+            print("No block was proposed by the consensus module (not leader/proposer). Mining deferred.")
+            return False
+
         new_block._is_local_mine = True
 
         if self.add_block(new_block):
