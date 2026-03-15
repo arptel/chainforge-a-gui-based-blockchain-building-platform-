@@ -1,157 +1,224 @@
 import { useState, useEffect } from 'react';
 import { getIssuers } from '../api';
 import { SPVLightClient } from '../spv/LightClient';
-import { Search, BadgeCheck, XCircle, AlertTriangle, Calendar, Award, User, Building, Cpu } from 'lucide-react';
+import { Search, BadgeCheck, XCircle, AlertTriangle, Calendar, Award, User, Building, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const spvNode = new SPVLightClient(["http://127.0.0.1:8080", "http://127.0.0.1:8081"]);
+// Initial fallback nodes, will be updated dynamically from the backend
+const DEFAULT_NODES = ["http://127.0.0.1:8080", "http://127.0.0.1:8081"];
 
 export default function CompanyDashboard() {
     const [certId, setCertId] = useState('');
+    const [data, setData] = useState(null);
     const [loadingStep, setLoadingStep] = useState('');
-    const [result, setResult] = useState(null);
-    const [certData, setCertData] = useState(null);
+    const [error, setError] = useState('');
+    const [statusData, setStatusData] = useState({ isValid: false, status: '', message: '' });
     const [issuersMap, setIssuersMap] = useState({});
+    const [spvNode, setSpvNode] = useState(new SPVLightClient(DEFAULT_NODES));
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Fetch issuer mappings on component mount
-        const fetchIssuers = async () => {
+        const initPortal = async () => {
             try {
                 const map = await getIssuers();
                 setIssuersMap(map);
+                
+                // Extract all unique node URLs from the issuer map
+                const dynamicNodes = Object.values(map)
+                    .map(issuer => issuer.url)
+                    .filter(url => !!url);
+                
+                if (dynamicNodes.length > 0) {
+                    console.log("[Portal] Discovered dynamic nodes:", dynamicNodes);
+                    setSpvNode(new SPVLightClient(dynamicNodes));
+                }
             } catch (err) {
-                console.error("Failed to load issuer map:", err);
+                console.error("Failed to initialize discovery:", err);
             }
         };
-        fetchIssuers();
+        initPortal();
     }, []);
 
     const handleVerify = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         if (!certId) return;
 
-        setLoadingStep('Synchronizing Block Headers via P2P...');
-        setResult(null);
-        setCertData(null);
+        setData(null);
+        setError('');
+        setStatusData({ isValid: false, status: '', message: '' });
 
         try {
+            setLoadingStep('Connecting...');
             await spvNode.syncHeaders();
-            await new Promise(r => setTimeout(r, 400));
+            await new Promise(r => setTimeout(r, 600));
 
-            setLoadingStep('Mathematically Verifying Merkle Proof...');
-            await new Promise(r => setTimeout(r, 400));
+            setLoadingStep('Searching...');
+            await new Promise(r => setTimeout(r, 600));
 
+            setLoadingStep('Verifying...');
             const verifyRes = await spvNode.verifyCertificate(certId);
-            setResult({ isValid: verifyRes.isValid, status: verifyRes.status, message: verifyRes.message });
+            setStatusData(verifyRes);
 
-            // If valid, extract trustless payload
             if (verifyRes.isValid || verifyRes.status === "Revoked") {
-                setCertData(verifyRes.data);
+                setData(verifyRes.data);
+                // Issuers already loaded in useEffect, but refresh map just in case to show name
+                try {
+                    const map = await getIssuers();
+                    setIssuersMap(map);
+                } catch (err) {
+                    console.error("Failed to update issuer map:", err);
+                }
+            } else {
+                setError(verifyRes.message || 'Certificate not found.');
             }
-
         } catch (err) {
-            setResult({ isValid: false, status: 'Error', message: 'Unable to connect to decentralized SPV network' });
+            console.error(err);
+            setError('Connection error. Please try again.');
         } finally {
             setLoadingStep('');
         }
     };
 
     return (
-        <div className="max-w-3xl mx-auto min-h-[70vh] flex flex-col items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="max-w-6xl mx-auto space-y-14 relative p-4">
+            {/* Subtle background pattern */}
+            <div className="absolute inset-0 bg-blockchain-pattern pointer-events-none -z-10 rounded-[3rem]"></div>
 
-            <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-6 shadow-lg shadow-blue-500/20">
-                <Search className="w-8 h-8 text-blue-400" />
+            <div className="text-center space-y-6">
+                <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-slate-900 border border-slate-800 text-white text-[10px] font-black uppercase tracking-[0.25em] mb-4 shadow-xl shadow-slate-200">
+                    <ShieldCheck className="w-4 h-4 text-indigo-400" /> Verification Portal
+                </div>
+                <h1 className="text-5xl md:text-6xl font-black text-slate-950 tracking-tighter leading-tight">Verify Certificate</h1>
+                <p className="text-slate-500 max-w-xl mx-auto leading-relaxed font-bold tracking-tight text-lg">
+                    Check the validity of any certificate instantly and securely.
+                </p>
             </div>
 
-            <h1 className="text-4xl font-bold mb-4 text-center">Company Verification Gateway</h1>
-            <p className="text-neutral-400 text-center mb-10 max-w-lg">
-                Enter a Blockchain Certificate ID to verify a candidate's academic credentials securely using a trustless P2P Light Node.
-            </p>
-
-            <form onSubmit={handleVerify} className="w-full relative mb-12">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-neutral-500" />
-                </div>
-                <input
-                    type="text"
-                    value={certId}
-                    onChange={(e) => setCertId(e.target.value)}
-                    placeholder="e.g. CERT-A1B2C3D4"
-                    className="block w-full pl-12 pr-40 py-4 bg-neutral-900/80 border border-white/10 rounded-2xl text-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-mono shadow-2xl"
-                />
-                <div className="absolute inset-y-2 right-2 flex items-center pr-1">
+            {/* Verification Control Area */}
+            <div className="soft-card p-3 shadow-[0_32px_64px_-12px_rgba(15,23,42,0.12)] max-w-2xl mx-auto animate-fade-in-up border-slate-200">
+                <form onSubmit={handleVerify} className="flex gap-4">
+                    <div className="relative flex-1 group">
+                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-indigo-600 transition-colors" />
+                        <input
+                            type="text"
+                            placeholder="Enter Certificate ID (CERT-...)"
+                            value={certId}
+                            onChange={(e) => setCertId(e.target.value)}
+                            className="slate-input w-full rounded-xl py-5 pl-14 pr-4 font-black tracking-widest text-sm uppercase placeholder:text-slate-300 placeholder:normal-case placeholder:tracking-tight border-none"
+                        />
+                    </div>
                     <button
                         type="submit"
-                        disabled={!!loadingStep}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+                        disabled={!!loadingStep || !certId}
+                        className="btn-primary px-12 rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-40 uppercase tracking-widest text-xs font-black"
                     >
-                        {loadingStep ? (
-                            <>
-                                <Cpu className="w-4 h-4 animate-spin" />
-                                {loadingStep.includes('Sync') ? 'Syncing...' : 'Verifying...'}
-                            </>
-                        ) : 'Web3 Verify'}
+                        {loadingStep ? 'Verifying...' : 'Verify'}
                     </button>
-                </div>
-            </form>
+                </form>
+            </div>
 
-            {/* Loading Indicator beneath bar */}
-            {loadingStep && (
-                <div className="mb-8 text-blue-400 animate-pulse font-mono text-sm tracking-widest uppercase">
-                    ► {loadingStep}
-                </div>
-            )}
-
-            {/* Result Display */}
-            {result && !loadingStep && (
-                <div className={`w-full p-8 rounded-2xl border backdrop-blur-sm transition-all animate-in zoom-in-95 duration-300 ${result.isValid
-                    ? 'bg-emerald-950/30 border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]'
-                    : 'bg-red-950/30 border-red-500/30 shadow-[0_0_50px_-12px_rgba(239,68,68,0.3)]'
-                    }`}>
-                    <div className="flex items-start gap-4">
-                        <div className="mt-1">
-                            {result.isValid ? (
-                                <BadgeCheck className="w-8 h-8 text-emerald-400" />
-                            ) : result.status === 'Revoked' ? (
-                                <AlertTriangle className="w-8 h-8 text-red-500" />
-                            ) : (
-                                <XCircle className="w-8 h-8 text-red-400" />
-                            )}
-                        </div>
-                        <div className="flex-1">
-                            <h3 className={`text-2xl font-bold mb-1 flex items-center gap-2 ${result.isValid ? 'text-emerald-400' : 'text-red-400'}`}>
-                                {result.status} {result.isValid && <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 ml-2 font-mono tracking-widest">SPV PROVED</span>}
-                            </h3>
-                            <p className="text-neutral-300 font-mono text-sm mb-4">ID: {certId}</p>
-                            <p className="text-neutral-400">{result.message}</p>
-
-                            {certData && result.isValid && (
-                                <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-2 gap-y-4 gap-x-8">
-                                    <div>
-                                        <span className="text-xs text-emerald-500/70 font-bold uppercase tracking-wider mb-1 block flex items-center gap-1"><User className="w-3 h-3" /> Candidate Name</span>
-                                        <p className="text-lg font-medium text-white">{certData.student_name}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-xs text-emerald-500/70 font-bold uppercase tracking-wider mb-1 block flex items-center gap-1"><Award className="w-3 h-3" /> Degree</span>
-                                        <p className="text-lg font-medium text-white">{certData.degree}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-xs text-emerald-500/70 font-bold uppercase tracking-wider mb-1 block flex items-center gap-1"><Calendar className="w-3 h-3" /> Graduation Year</span>
-                                        <p className="text-lg font-medium text-white">{certData.year}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-xs text-emerald-500/70 font-bold uppercase tracking-wider mb-1 block flex items-center gap-1"><Building className="w-3 h-3" /> Issuing Authority</span>
-                                        <p className="text-lg font-medium text-white">{issuersMap[certData.issuer_id] || "Unknown College"}</p>
-                                        <p className="text-xs font-mono text-neutral-500 mt-1 truncate" title={certData.issuer_id}>Key: {certData.issuer_id.substring(0, 10)}...</p>
-                                    </div>
-                                </div>
-                            )}
+            {loadingStep ? (
+                <div className="soft-card p-20 text-center space-y-10 animate-in zoom-in-95 duration-500 border-indigo-100">
+                    <div className="relative w-24 h-24 mx-auto">
+                        <div className="absolute inset-0 border-[6px] border-slate-50 rounded-full shadow-inner"></div>
+                        <div className="absolute inset-0 border-[6px] border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                    <div className="space-y-4">
+                        <p className="text-3xl font-black text-slate-950 tracking-tight">Checking Database</p>
+                        <div className="inline-flex items-center gap-4 bg-slate-900 border border-slate-800 rounded-2xl px-8 py-4 text-indigo-400 font-black text-xs tracking-[0.2em] shadow-2xl">
+                            <span className="animate-pulse-soft">●</span> {loadingStep}
                         </div>
                     </div>
                 </div>
-            )}
+            ) : error ? (
+                <div className="soft-card p-14 border-red-200 bg-red-50 text-center space-y-6 animate-in fade-in">
+                    <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center mx-auto shadow-sm border border-red-200 animate-shake">
+                        <XCircle className="w-12 h-12 text-red-600" />
+                    </div>
+                    <div className="space-y-3">
+                        <h3 className="text-3xl font-black text-slate-950 tracking-tight">Check Failed</h3>
+                        <p className="text-red-700 font-bold max-w-md mx-auto text-sm leading-relaxed">{error}</p>
+                    </div>
+                    <button onClick={() => setError('')} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors">Dismiss</button>
+                </div>
+            ) : data ? (
+                <div className="relative animate-in zoom-in-95 duration-700">
+                    {!statusData.isValid && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none rounded-[3rem] bg-slate-950/20 backdrop-blur-[2px]">
+                            <div className="border-[14px] border-red-600 px-20 py-10 rounded-[2.5rem] bg-white text-red-600 font-black text-7xl uppercase tracking-tighter -rotate-12 shadow-[0_48px_96px_-16px_rgba(220,38,38,0.4)]">
+                                REVOKED
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="soft-card overflow-hidden shadow-[0_48px_96px_-24px_rgba(15,23,42,0.15)] relative border-slate-200 bg-white">
+                        <div className={`h-3 w-full ${statusData.isValid ? 'bg-indigo-600' : 'bg-red-600'} shadow-sm`} />
+                        
+                        <div className="p-12 md:p-20 space-y-16">
+                            <div className="flex justify-center">
+                                {statusData.isValid ? (
+                                    <div className="inline-flex items-center gap-4 px-8 py-3 rounded-full bg-slate-900 border-2 border-slate-800 text-indigo-400 font-black tracking-[0.3em] text-[10px] shadow-2xl">
+                                        <BadgeCheck className="w-5 h-5" /> VALID CERTIFICATE
+                                    </div>
+                                ) : (
+                                    <div className="inline-flex items-center gap-4 px-8 py-3 rounded-full bg-red-600 text-white font-black tracking-[0.3em] text-[10px] shadow-2xl">
+                                        <AlertTriangle className="w-5 h-5" /> REVOKED
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-14">
+                                <div className="space-y-4">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] block ml-1">Student Name</label>
+                                    <div className="flex items-center gap-4 p-5 rounded-2xl bg-slate-50 border border-slate-100 shadow-inner">
+                                        <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm"><User className="w-6 h-6 text-slate-900" /></div>
+                                        <p className="text-2xl font-black text-slate-950 tracking-tight">{data.student_name}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] block ml-1">Degree</label>
+                                    <div className="flex items-center gap-4 p-5 rounded-2xl bg-slate-50 border border-slate-100 shadow-inner">
+                                        <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm"><Award className="w-6 h-6 text-indigo-600" /></div>
+                                        <p className="text-xl font-black text-slate-950 tracking-tight leading-tight">{data.degree}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] block ml-1">College</label>
+                                    <div className="flex items-center gap-4 p-5 rounded-2xl bg-slate-50 border border-slate-100 shadow-inner">
+                                        <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm"><Building className="w-6 h-6 text-indigo-900" /></div>
+                                        <p className="text-lg font-black text-slate-950 truncate leading-tight" title={data.issuer_id}>
+                                            {issuersMap[data.issuer_id]?.name || "Academic Institution"}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-12 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-10">
+                                <div className="flex items-center gap-4 text-slate-400 font-black text-xs uppercase tracking-widest">
+                                    <Calendar className="w-6 h-6 text-slate-200" />
+                                    <span>Year: <span className="text-slate-950 font-black bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 ml-2">{data.year}</span></span>
+                                </div>
+                                
+                                <div className="flex gap-6">
+                                    <button 
+                                        onClick={() => navigate(`/student/${certId}`)}
+                                        className="group flex items-center gap-3 px-10 py-5 rounded-2xl bg-slate-950 text-white font-black transition-all active:scale-95 shadow-2xl shadow-slate-300 text-xs uppercase tracking-widest"
+                                    >
+                                        <ExternalLink className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform" /> View Certificate
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+            
+            <div className="text-center">
+                 <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.4em] max-w-lg mx-auto leading-relaxed">
+                    Certificate Verification System <br />
+                    ID: <span className="text-slate-400 select-all">{certId || "N/A"}</span>
+                 </p>
+            </div>
         </div>
     );
 }
-

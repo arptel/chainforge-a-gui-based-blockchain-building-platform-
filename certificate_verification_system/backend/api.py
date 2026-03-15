@@ -1,4 +1,5 @@
 import uuid
+import requests
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from dependencies import require_issuer
@@ -22,7 +23,8 @@ async def issue_certificate(req: IssueRequest, current_user: dict = Depends(requ
     Only users with the ISSUER role (verified via JWT) can call this.
     """
     # Generate a unique deterministic ID or just a UUID for the certificate
-    cert_id = f"CERT-{uuid.uuid4().hex[:8].upper()}"
+    node_id = uuid.uuid4().hex
+    cert_id = f"CERT-{node_id[:8].upper()}"
     
     # 1. We assume the ChainForge network is running and we call its REST API.
     # We pass the college's blockchain_address as the caller.
@@ -72,14 +74,34 @@ async def revoke_certificate(req: RevokeRequest, current_user: dict = Depends(re
     """
     Revokes a certificate. Only the original issuer can do this.
     """
-    payload = {
-        "caller": current_user["address"],
-        "cert_id": req.cert_id,
-        "requester_id": current_user["address"]
-    }
-    
     try:
         client = ChainForgeClient(current_user.get("node_url"))
+        
+        # Pre-check: Read the blockchain state to verify the caller is the original issuer
+        # This avoids waiting 15 seconds for a mining timeout when the smart contract would reject it anyway.
+        try:
+            state_resp = requests.get(f"{current_user.get('node_url')}/state")
+            state_resp.raise_for_status()
+            state = state_resp.json()
+            
+            cert_key = f"cert_{req.cert_id}"
+            if cert_key not in state:
+                raise HTTPException(status_code=404, detail="Certificate not found on the blockchain")
+            
+            cert = state[cert_key]
+            if cert.get("is_revoked"):
+                raise HTTPException(status_code=400, detail="Certificate is already revoked")
+            
+            if cert.get("issuer_id") != current_user["address"]:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Unauthorized: Only the original issuing authority can revoke this certificate"
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            # If we can't pre-check, fall through and let the blockchain handle it
+            pass
         
         response = client.CertificateRegistry.revoke_certificate(
             user_address=current_user["address"],
@@ -95,6 +117,8 @@ async def revoke_certificate(req: RevokeRequest, current_user: dict = Depends(re
             "status": "success",
             "message": f"Certificate {req.cert_id} revoked successfully."
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Blockchain Node Error: {str(e)}")
 
@@ -105,15 +129,63 @@ async def revoke_certificate(req: RevokeRequest, current_user: dict = Depends(re
 async def get_issuers():
     """
     Public endpoint to get a mapping of blockchain addresses to issuer names.
+    Now reads from the persistent SQLite database instead of the old MOCK_USERS dict.
     """
-    from auth import MOCK_USERS
+    import sqlite3
+    from auth import DB_PATH
     
-    # Map their blockchain address (public key) to a readable name
     issuer_map = {}
-    for username, user_data in MOCK_USERS.items():
-        if "blockchain_address" in user_data and user_data["blockchain_address"]:
-            # Convert 'college_a' to 'College A'
-            readable_name = username.replace("_", " ").title()
-            issuer_map[user_data["blockchain_address"]] = readable_name
-            
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('SELECT username, blockchain_address, node_url FROM users WHERE role = "ISSUER"')
+        for row in cursor.fetchall():
+            username, address, node_url = row
+            if address:
+                readable_name = username.replace("_", " ").title()
+                issuer_map[address] = {
+                    "name": readable_name,
+                    "url": node_url
+                }
+        conn.close()
+    except Exception as e:
+        print(f"[API] Error loading issuers: {e}")
+        
     return issuer_map
+
+
+@api_router.get("/history")
+async def get_certificate_history(current_user: dict = Depends(require_issuer)):
+    """
+    Returns all certificates issued by the authenticated college.
+    """
+    try:
+        node_url = current_user.get("node_url")
+        if not node_url:
+            raise HTTPException(status_code=500, detail="Node URL not configured for user")
+            
+        resp = requests.get(f"{node_url}/state")
+        resp.raise_for_status()
+        state = resp.json()
+        
+        issued_certs = []
+        for key, value in state.items():
+            if key.startswith("cert_") and isinstance(value, dict):
+                # Only include if this user is the issuer
+                if value.get("issuer_id") == current_user["address"]:
+                    # Correctly extract cert_id from key if not in value
+                    raw_id = value.get("cert_id") or key.replace("cert_", "")
+                    
+                    # Flatten the data structure for frontend
+                    issued_certs.append({
+                        "certId": raw_id,
+                        "studentName": value.get("student_name"),
+                        "degree": value.get("degree"),
+                        "year": value.get("year"),
+                        "isRevoked": value.get("is_revoked", False),
+                        "timestamp": "On-Chain"
+                    })
+        
+        return issued_certs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")

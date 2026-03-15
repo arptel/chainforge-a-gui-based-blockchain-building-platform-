@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api';
-import { KeyRound, Lock, User } from 'lucide-react';
+import { KeyRound, Lock, User, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 
 export default function Login() {
     const [username, setUsername] = useState('college_a');
     const [password, setPassword] = useState('password123');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -20,69 +21,94 @@ export default function Login() {
             localStorage.setItem('token', data.access_token);
             navigate('/college');
         } catch (err) {
-            setError('Invalid college credentials');
+            setError('The credentials provided are incorrect.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-[70vh] flex items-center justify-center">
-            <div className="w-full max-w-md">
-                <div className="relative p-8 rounded-2xl bg-neutral-900/80 border border-white/10 backdrop-blur-xl shadow-2xl">
-                    {/* Subtle Glow */}
-                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 blur-3xl rounded-full" />
-
+        <div className="min-h-[70vh] flex items-center justify-center p-4">
+            <div className={`w-full max-w-md animate-fade-in-up ${error ? 'animate-shake' : ''}`}>
+                <div className="soft-card p-10 shadow-2xl relative overflow-hidden">
                     <div className="relative z-10">
-                        <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center mb-6 mx-auto">
-                            <KeyRound className="w-6 h-6 text-indigo-400" />
+                        <div className="w-16 h-16 rounded-2xl bg-slate-900 flex items-center justify-center mb-8 mx-auto shadow-xl">
+                            <ShieldCheck className="w-8 h-8 text-white" />
                         </div>
-                        <h2 className="text-2xl font-bold text-center mb-2">College Portal</h2>
-                        <p className="text-neutral-400 text-center mb-8">Authenticate with your ISSUER credentials</p>
+                        <h2 className="text-3xl font-black text-center text-slate-950 mb-3 tracking-tight">College Login</h2>
+                        <p className="text-slate-500 text-center mb-12 text-sm font-bold uppercase tracking-tight">Authorized Access Only</p>
 
                         {error && (
-                            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm mb-6 text-center">
+                            <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm mb-10 text-center font-black animate-in fade-in zoom-in-95">
                                 {error}
                             </div>
                         )}
 
-                        <form onSubmit={handleLogin} className="space-y-4">
+                        <form onSubmit={handleLogin} className="space-y-8">
                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-1">Username</label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">Username</label>
+                                <div className="relative group">
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                     <input
                                         type="text"
+                                        required
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
-                                        className="w-full bg-black/50 border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
-                                        placeholder="college_a"
+                                        className="slate-input w-full rounded-xl py-4.5 pl-12 pr-4 font-bold text-sm tracking-tight placeholder:text-slate-300"
+                                        placeholder="college_code"
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-neutral-300 mb-1">Password</label>
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">Password</label>
+                                <div className="relative group">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                     <input
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
+                                        required
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full bg-black/50 border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                                        className="slate-input w-full rounded-xl py-4.5 pl-12 pr-12 font-bold text-sm tracking-tight placeholder:text-slate-300"
                                         placeholder="••••••••"
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-900 transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
                                 </div>
                             </div>
 
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full mt-6 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-400 hover:to-blue-500 text-white font-semibold py-2.5 rounded-lg shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full mt-6 btn-secondary text-white font-black py-5 rounded-xl shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-[0.98]"
                             >
-                                {loading ? 'Authenticating on Chain...' : 'Secure Login'}
+                                {loading ? (
+                                    <div className="w-5 h-5 border-3 border-white/20 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <KeyRound className="w-4 h-4" />
+                                )}
+                                <span className="tracking-widest uppercase text-xs">{loading ? 'Logging in...' : 'Login'}</span>
                             </button>
                         </form>
+
+                        <div className="mt-12 pt-10 border-t border-slate-100 text-center">
+                            <p className="text-xs text-slate-400 font-black uppercase tracking-[0.1em] mb-6">New College?</p>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/register')}
+                                className="w-full bg-white border-2 border-slate-200 text-slate-900 font-black py-4 rounded-xl hover:border-slate-900 transition-all flex items-center justify-center gap-2 group text-sm shadow-sm"
+                            >
+                                <span>Sign Up</span>
+                                <svg className="w-4 h-4 text-slate-400 group-hover:translate-x-1 group-hover:text-slate-900 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

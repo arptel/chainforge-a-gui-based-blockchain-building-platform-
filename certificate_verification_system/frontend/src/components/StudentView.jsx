@@ -2,55 +2,61 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getIssuers } from '../api';
 import { SPVLightClient } from '../spv/LightClient';
-import { ShieldCheck, Calendar, User, Award, ShieldAlert, Cpu } from 'lucide-react';
+import { ShieldCheck, Calendar, Share2, Download, CheckCircle2, QrCode, Building, Award, ShieldAlert, Cpu } from 'lucide-react';
 
-// Instantiate SPV Light Node globally for this session
-const spvNode = new SPVLightClient(["http://127.0.0.1:8080", "http://127.0.0.1:8081"]);
+// Initial fallback nodes, will be updated dynamically from the backend
+const DEFAULT_NODES = ["http://127.0.0.1:8080", "http://127.0.0.1:8081"];
 
 export default function StudentView() {
     const { certId } = useParams();
     const navigate = useNavigate();
     const [data, setData] = useState(null);
-    const [loadingStep, setLoadingStep] = useState('Initializing SPV Light Node...');
+    const [loadingStep, setLoadingStep] = useState('Connecting...');
     const [error, setError] = useState('');
     const [statusData, setStatusData] = useState({ isValid: false, status: '', message: '' });
     const [issuersMap, setIssuersMap] = useState({});
+    const [spvNode, setSpvNode] = useState(new SPVLightClient(DEFAULT_NODES));
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         const verifyTrustlessly = async () => {
             try {
-                // Step 1: Connect to the network
-                setLoadingStep('Synchronizing Block Headers via P2P...');
-                await spvNode.syncHeaders();
+                setLoadingStep('Connecting...');
+                
+                // 1. Dynamic Node Discovery
+                const issuers = await getIssuers();
+                setIssuersMap(issuers);
+                
+                const dynamicNodes = Object.values(issuers)
+                    .map(issuer => issuer.url)
+                    .filter(url => !!url);
+                
+                // Temporarily use local spvNode instance or update current one
+                const activeClient = dynamicNodes.length > 0 
+                    ? new SPVLightClient(dynamicNodes)
+                    : spvNode;
+                
+                if (dynamicNodes.length > 0) setSpvNode(activeClient);
 
-                // Optional delay to let user see SPV is working!
-                await new Promise(r => setTimeout(r, 600));
+                // 2. Trustless SPV Flow
+                await activeClient.syncHeaders();
+                await new Promise(r => setTimeout(r, 650));
 
-                // Step 2: Request Proof
-                setLoadingStep('Requesting Cryptographic Merkle Proof...');
-                await new Promise(r => setTimeout(r, 600));
+                setLoadingStep('Searching...');
+                await new Promise(r => setTimeout(r, 650));
 
-                // Step 3: Mathmatically verify
-                setLoadingStep('Mathematically Verifying Hash Integrity...');
-                const verifyRes = await spvNode.verifyCertificate(certId);
+                setLoadingStep('Verifying...');
+                const verifyRes = await activeClient.verifyCertificate(certId);
                 setStatusData(verifyRes);
 
-                if (verifyRes.isValid || verifyRes.status === "Revoked") {
-                    // The data is now guaranteed authentic directly from the SPV check! 
-                    setData(verifyRes.data);
-
-                    try {
-                        const map = await getIssuers();
-                        setIssuersMap(map);
-                    } catch (err) {
-                        console.error("Failed to load issuer map:", err);
-                    }
+                if (!verifyRes.isValid && verifyRes.status !== "Revoked") {
+                    setError(verifyRes.message || 'Certificate not found.');
                 } else {
-                    setError(verifyRes.message || 'Certificate not found on the blockchain.');
+                    setData(verifyRes.data);
                 }
             } catch (err) {
                 console.error(err);
-                setError(err.message || 'Failed to sync with the decentralized network.');
+                setError('Connection timeout. Please try again.');
             } finally {
                 setLoadingStep('');
             }
@@ -58,20 +64,25 @@ export default function StudentView() {
         verifyTrustlessly();
     }, [certId]);
 
+    const handleShare = () => {
+        navigator.clipboard.writeText(window.location.href);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
     if (loadingStep) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
-                <div className="relative w-24 h-24 flex items-center justify-center">
-                    <div className="absolute inset-0 border-4 border-indigo-500/30 rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <Cpu className="w-8 h-8 text-indigo-400 animate-pulse" />
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-10 animate-in fade-in">
+                <div className="relative w-28 h-28 flex items-center justify-center">
+                    <div className="absolute inset-0 border-4 border-slate-100 rounded-full shadow-inner"></div>
+                    <div className="absolute inset-0 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                    <ShieldCheck className="w-10 h-10 text-slate-300 animate-pulse-soft" />
                 </div>
-                <div className="text-center">
-                    <h3 className="text-xl font-bold text-white mb-2">Web3 Verification in Progress</h3>
-                    <p className="text-indigo-300 font-mono text-sm tracking-wide bg-indigo-500/10 px-4 py-2 rounded-lg border border-indigo-500/20 shadow-inner">
-                        <span className="animate-pulse mr-2">▶</span>
-                        {loadingStep}
-                    </p>
+                <div className="text-center space-y-5">
+                    <h3 className="text-3xl font-black text-slate-950 tracking-tight">Verifying Certificate</h3>
+                    <div className="inline-flex items-center gap-4 bg-slate-900 border border-slate-800 rounded-2xl px-8 py-4 text-indigo-400 font-black text-xs tracking-[0.2em] shadow-2xl">
+                        <span className="animate-pulse-soft mr-2">●</span> {loadingStep}
+                    </div>
                 </div>
             </div>
         );
@@ -79,80 +90,143 @@ export default function StudentView() {
 
     if (error || !data) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-                <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
-                    <ShieldAlert className="w-8 h-8 text-red-500" />
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 animate-in zoom-in-95">
+                <div className="w-24 h-24 bg-red-50 rounded-[2.5rem] flex items-center justify-center mb-10 border border-red-200 shadow-sm animate-shake">
+                    <ShieldAlert className="w-12 h-12 text-red-600" />
                 </div>
-                <h2 className="text-2xl font-bold mb-2">Invalid Certificate Link</h2>
-                <p className="text-neutral-400">{error}</p>
-                <button onClick={() => navigate('/')} className="mt-6 text-indigo-400 hover:text-indigo-300">Return Home</button>
+                <h2 className="text-4xl font-black text-slate-950 mb-4 tracking-tighter leading-tight">Verification Failed</h2>
+                <p className="text-slate-500 max-w-sm mx-auto mb-12 font-bold text-base leading-relaxed">{error || "This certificate could not be verified in our records."}</p>
+                <button onClick={() => navigate('/')} className="btn-secondary px-12 py-5 rounded-2xl text-white font-black transition-all shadow-xl active:scale-95 uppercase tracking-widest text-xs">Home</button>
             </div>
         );
     }
 
     return (
-        <div className="max-w-4xl mx-auto py-8">
-            {/* Decorative Document Wrapper */}
-            <div className="relative p-1 rounded-[2rem] bg-gradient-to-br from-indigo-500/20 via-blue-500/10 to-transparent shadow-2xl">
-                <div className="relative bg-neutral-950 p-8 md:p-16 rounded-[1.85rem] border border-white/5 mx-auto overflow-hidden">
-
-                    {/* Watermark */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
-                        <ShieldCheck className="w-[30rem] h-[30rem]" />
+        <div className="max-w-5xl mx-auto py-6 space-y-10 animate-in fade-in slide-in-from-bottom-12 duration-1000">
+            {/* Minimal Toolbar */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-6 bg-white border border-slate-200 rounded-[2rem] px-8 py-4 shadow-xl shadow-slate-100">
+                <div className="flex items-center gap-5">
+                   <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981] animate-pulse" />
+                        <span className="text-[11px] uppercase tracking-[0.2em] font-black text-white">Verified Account</span>
                     </div>
+                </div>
+                <div className="flex items-center gap-8">
+                    <button onClick={handleShare} className="flex items-center gap-2 text-xs font-black text-indigo-600 uppercase tracking-[0.2em] hover:text-indigo-700 transition-colors">
+                        {copied ? <CheckCircle2 className="w-5 h-5" /> : <Share2 className="w-5 h-5" />}
+                        {copied ? 'Link Copied' : 'Share Certificate'}
+                    </button>
+                    <div className="h-6 w-px bg-slate-100" />
+                    <button className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-[0.2em] hover:text-slate-900 transition-colors">
+                        <Download className="w-5 h-5" />
+                        Download PDF
+                    </button>
+                </div>
+            </div>
 
-                    {/* Certificate Content */}
-                    <div className="relative z-10 text-center space-y-8">
-                        <div className="flex justify-center mb-8">
+            {/* Certificate Display */}
+            <div className="relative p-2 rounded-[3.5rem] bg-indigo-600 shadow-[0_48px_120px_-32px_rgba(30,41,59,0.2)]">
+                <div className="relative bg-white p-14 md:p-28 rounded-[3.25rem] border-[1px] border-white/50 mx-auto overflow-hidden">
+                    
+                    {/* Security Watermarks */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-[0.02] pointer-events-none select-none">
+                        <ShieldCheck className="w-[45rem] h-[45rem]" />
+                    </div>
+                    
+                    {/* Elegant Slate Borders */}
+                    <div className="absolute inset-6 border-[1px] border-slate-100 pointer-events-none rounded-[2.5rem]" />
+                    <div className="absolute inset-8 border-[6px] border-slate-50 pointer-events-none rounded-[2.25rem]" />
+                    <div className="absolute inset-[3.5rem] border-[1px] border-slate-50 pointer-events-none rounded-[1.75rem]" />
+
+                    {/* Content */}
+                    <div className="relative z-10 text-center">
+                        <div className="flex justify-center items-center gap-6 mb-16">
+                            <img src="/assets/blockchain_simple_trust_badge.png" alt="" className="w-16 h-16 opacity-80" />
                             {statusData.isValid ? (
-                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium tracking-wide shadow-[0_0_15px_rgba(52,211,153,0.1)]">
-                                    <ShieldCheck className="w-5 h-5" />
-                                    <span>TRUSTLESS SPV VALIDATION: SUCCESS</span>
+                                <div className="inline-flex items-center gap-3 px-8 py-3 rounded-full bg-slate-900 border-2 border-slate-800 text-indigo-400 font-black tracking-[0.4em] text-[11px] shadow-2xl">
+                                    <ShieldCheck className="w-5 h-5" /> VALID CERTIFICATE
                                 </div>
                             ) : (
-                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 font-medium tracking-wide">
-                                    <ShieldAlert className="w-5 h-5" /> CERTIFICATE REVOKED
+                                <div className="inline-flex items-center gap-3 px-8 py-3 rounded-full bg-red-600 text-white font-black tracking-[0.4em] text-[11px] shadow-2xl">
+                                    <ShieldAlert className="w-5 h-5" /> REVOKED
                                 </div>
                             )}
                         </div>
 
-                        <div className="space-y-2 uppercase tracking-widest text-neutral-400 text-sm font-bold">
-                            ChainForge Network <br /> College / University
+                        <div className="uppercase tracking-[0.6em] text-slate-300 text-[11px] font-black mb-12 flex items-center justify-center gap-6">
+                           <div className="h-px w-16 bg-slate-100" />
+                           OFFICIAL CERTIFICATE VIEW
+                           <div className="h-px w-16 bg-slate-100" />
                         </div>
 
-                        <h1 className="text-5xl md:text-6xl font-serif text-white tracking-wide py-4 border-y border-white/10 my-10">
-                            Certificate of Degree
+                        <h1 className="text-6xl md:text-8xl font-serif text-slate-950 tracking-tight italic mb-24 px-4 leading-tight">
+                            Digital Diploma
                         </h1>
 
-                        <p className="text-lg text-neutral-300 italic">This certifies that</p>
-                        <h2 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-100 to-white pb-2">
-                            {data.student_name}
-                        </h2>
-
-                        <p className="text-lg text-neutral-300 italic">has successfully completed the requirements for the degree of</p>
-                        <h3 className="text-3xl font-medium text-blue-400">{data.degree}</h3>
-
-                        <div className="grid grid-cols-2 gap-8 max-w-lg mx-auto mt-16 pt-8 border-t border-white/5">
-                            <div className="text-left">
-                                <span className="text-xs text-neutral-500 uppercase tracking-widest block mb-1">Graduation Year</span>
-                                <p className="text-xl font-mono text-white">{data.year}</p>
+                        <div className="space-y-24">
+                            <div className="space-y-6">
+                                <p className="text-2xl text-slate-400 italic font-serif">Awarded To</p>
+                                <h2 className="text-6xl md:text-8xl font-black text-slate-950 tracking-tighter pb-4 underline underline-offset-[16px] decoration-slate-100 decoration-4">
+                                    {data.student_name}
+                                </h2>
                             </div>
-                            <div className="text-left">
-                                <span className="text-xs text-neutral-500 uppercase tracking-widest block mb-1">Blockchain Tracking ID</span>
-                                <p className="text-sm font-mono text-neutral-400 truncate">{certId}</p>
+
+                            <div className="space-y-6">
+                                <p className="text-2xl text-slate-400 italic font-serif">For completing the degree of</p>
+                                <h3 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight leading-snug">{data.degree}</h3>
                             </div>
                         </div>
 
-                        <div className="mt-8 text-center bg-white/5 p-4 rounded-xl border border-white/5 inline-block min-w-[50%]">
-                            <span className="text-xs text-indigo-400 uppercase tracking-widest block mb-1 font-semibold">Cryptographically Signed & Verified</span>
-                            <p className="text-lg font-medium text-white mb-1">{issuersMap[data.issuer_id] || "Unknown College"}</p>
-                            <p className="text-xs font-mono text-neutral-500 truncate" title={data.issuer_id}>{data.issuer_id}</p>
-                        </div>
+                        {/* Signature/Validation Section */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-20 mt-32 pt-20 border-t-2 border-slate-50 group">
+                            <div className="text-left space-y-10">
+                                <div className="space-y-4">
+                                    <span className="text-[11px] text-slate-400 uppercase font-black tracking-[0.3em] block">College / University</span>
+                                    <div className="flex items-start gap-4">
+                                        <Building className="w-6 h-6 text-slate-900 mt-1" />
+                                        <div>
+                                            <p className="text-xl font-black text-slate-950 leading-tight tracking-tight">{issuersMap[data.issuer_id]?.name || "Academic Institution"}</p>
+                                            <p className="text-[10px] font-mono text-slate-300 mt-2.5 break-all tracking-tighter leading-relaxed">{data.issuer_id}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-[11px] text-slate-400 uppercase font-black tracking-[0.3em] block mb-2">Year Issued</span>
+                                    <p className="text-2xl font-black text-slate-950 tracking-widest">{data.year}</p>
+                                </div>
+                            </div>
 
+                            <div className="flex flex-col items-center justify-center">
+                                <div className="p-6 bg-slate-50 rounded-3xl border-2 border-slate-100 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                                    <QrCode className="w-20 h-20 text-slate-950" strokeWidth={1} />
+                                </div>
+                                <span className="text-[9px] text-slate-400 uppercase mt-6 font-black tracking-[0.4em] opacity-40">Certificate ID: {certId.slice(0, 8)}</span>
+                            </div>
+
+                            <div className="text-right space-y-10 flex flex-col items-end">
+                                <div className="max-w-[220px]">
+                                    <span className="text-[11px] text-slate-400 uppercase font-black tracking-[0.3em] block mb-4">Verification ID</span>
+                                    <div className="p-3 bg-slate-950 rounded-2xl text-[10px] font-mono text-indigo-400 break-all leading-loose text-left shadow-2xl">
+                                        {certId}
+                                    </div>
+                                </div>
+                                <div className="pt-4 flex items-center gap-4">
+                                    <span className="text-[10px] text-slate-400 uppercase font-black tracking-[0.3em]">Verified Record</span>
+                                    <CheckCircle2 className="w-10 h-10 text-emerald-500/10 fill-emerald-50" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Footer Disclaimer */}
+            <div className="text-center px-10 pb-16">
+                <p className="text-[11px] text-slate-400 max-w-2xl mx-auto leading-relaxed font-black uppercase tracking-[0.2em] opacity-80">
+                    Sovereign Digital Certificate <br />
+                    <span className="text-slate-300 text-[10px]">This is an official digital record. Modifications to this view do not alter the underlying blockchain record.</span>
+                </p>
             </div>
         </div>
     );
 }
-

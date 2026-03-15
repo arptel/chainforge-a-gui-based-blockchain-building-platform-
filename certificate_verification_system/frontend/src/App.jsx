@@ -1,54 +1,78 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, NavLink } from 'react-router-dom';
 import Home from './components/Home';
 import Login from './components/Login';
 import CollegeDashboard from './components/CollegeDashboard';
 import CompanyDashboard from './components/CompanyDashboard';
 import StudentView from './components/StudentView';
+import Register from './components/Register';
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans selection:bg-indigo-500/30">
-        {/* Background Ambient Glow */}
-        <div className="fixed inset-0 z-0 flex items-center justify-center overflow-hidden pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full mix-blend-screen" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full mix-blend-screen" />
-        </div>
-
+      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 flex flex-col">
         {/* Top Navigation Bar */}
-        <nav className="relative z-10 border-b border-white/10 bg-black/40 backdrop-blur-md sticky top-0">
+        <nav className="relative z-50 border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <NavLink to="/" className="flex items-center gap-2 group">
+                <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center shadow-md group-hover:bg-indigo-600 transition-colors">
                   <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 </div>
-                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-neutral-400">
+                <span className="text-xl font-bold tracking-tight text-slate-900">
                   ChainForge Certs
                 </span>
-              </div>
-              <div className="flex space-x-4">
-                <a href="/" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors">Home</a>
-                <a href="/verify" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors">Verify</a>
-                <a href="/login" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors">College Portal</a>
+              </NavLink>
+              <div className="flex items-center space-x-1">
+                <NavLink to="/" end className={({ isActive }) => `px-3.5 py-2 rounded-lg text-sm font-bold transition-all ${isActive ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}>
+                  Home
+                </NavLink>
+                <NavLink to="/verify" className={({ isActive }) => `px-3.5 py-2 rounded-lg text-sm font-bold transition-all ${isActive ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}>
+                  Verify
+                </NavLink>
+                <NavLink to="/login" className={({ isActive }) => `px-3.5 py-2 rounded-lg text-sm font-bold transition-all ${isActive ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}>
+                  Login
+                </NavLink>
+                <NavLink to="/register" className={({ isActive }) => `ml-3 px-5 py-2 rounded-full text-sm font-black transition-all shadow-md ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white hover:bg-indigo-600'}`}>
+                  Sign Up
+                </NavLink>
               </div>
             </div>
           </div>
         </nav>
 
         {/* Main Content */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 flex-1 w-full">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route path="/college" element={<CollegeDashboard />} />
             <Route path="/verify" element={<CompanyDashboard />} />
             <Route path="/student/:certId" element={<StudentView />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
+
+        {/* Footer */}
+        <footer className="relative z-10 border-t border-slate-200 bg-white py-12 mt-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-6 h-6 rounded-md bg-slate-900 flex items-center justify-center">
+                 <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              </div>
+              <p className="text-sm font-black text-slate-950 tracking-tight">ChainForge Certs</p>
+            </div>
+            <div className="hidden md:block h-4 w-px bg-slate-200" />
+            <p className="text-sm text-slate-500 font-bold tracking-tight">
+              Decentralized Trust Protocol for Academic Credentials.
+            </p>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
+              © {new Date().getFullYear()} CF Network · Audit Ready
+            </p>
+          </div>
+        </footer>
       </div>
     </Router>
   );

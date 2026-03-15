@@ -20,6 +20,11 @@ export const login = async (username, password) => {
     return response.data;
 };
 
+export const register = async (username, password, dbPath) => {
+    const response = await api.post('/auth/register', { username, password, db_path: dbPath || '' });
+    return response.data;
+};
+
 export const issueCertificate = async (studentName, degree, year) => {
     const response = await api.post('/api/issue', { student_name: studentName, degree, year });
     return response.data;
@@ -34,6 +39,11 @@ export const revokeCertificate = async (certId) => {
 
 export const getIssuers = async () => {
     const response = await api.get('/api/issuers');
+    return response.data;
+};
+
+export const getHistory = async () => {
+    const response = await api.get('/api/history');
     return response.data;
 };
 
