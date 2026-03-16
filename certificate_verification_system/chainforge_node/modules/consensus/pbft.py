@@ -11,28 +11,32 @@ Requires P2P network layer for message broadcasting and vote counting.
 """
 import time
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set
+import sys
+import os
+
 try:
-    from interfaces.consensus import ConsensusInterface
-    from core.block import Block
+    from interfaces.consensus import ConsensusInterface  # type: ignore
+    from core.block import Block  # type: ignore
 except ImportError:
-    from chainforge.templates.chain_core.interfaces.consensus import ConsensusInterface
-    from chainforge.templates.chain_core.core.block import Block
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+    from interfaces.consensus import ConsensusInterface  # type: ignore
+    from core.block import Block  # type: ignore
 
 class PBFTConsensus(ConsensusInterface):
-    def __init__(self, node_id: str, peers: List[str] = None):
+    def __init__(self, node_id: str, peers: Optional[List[str]] = None):
         self.node_id = node_id
         self.peers = peers or []
         self.f = len(self.peers) // 3
         self.quorum = 2 * self.f + 1
         
         # State tracking
-        self.pre_prepares: Dict[int, Dict[str, Any]] = {}  # sequence -> message
-        self.prepares: Dict[int, Dict[str, set]] = {}      # sequence -> {block_hash: {voters}}
-        self.commits: Dict[int, Dict[str, set]] = {}       # sequence -> {block_hash: {voters}}
+        self.pre_prepares: Dict[int, Dict[str, Any]] = {}  # sequence        # Vote storage
+        self.prepares: Dict[int, Dict[str, Set[str]]] = {}         # sequence -> {block_hash: {voters}}
+        self.commits: Dict[int, Dict[str, Set[str]]] = {}       # sequence -> {block_hash: {voters}}
         self.committed_blocks: Dict[int, str] = {}         # sequence -> block_hash
         
-        self.network = None # Will be set by set_consensus_module
+        self.network: Any = None # Will be set by set_consensus_module
 
     def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Optional[Block]:
         """Leader phase: Create and broadcast a PRE-PREPARE message."""
@@ -86,9 +90,16 @@ class PBFTConsensus(ConsensusInterface):
 
     def handle_consensus_message(self, msg: Dict[str, Any]):
         """Route incoming PBFT messages."""
+        try:
+            seq: int = int(str(msg.get("sequence", "-1")))
+        except (ValueError, TypeError):
+            return
+            
         msg_type = msg.get("type")
-        seq = msg.get("sequence")
         sender = msg.get("sender")
+        
+        if seq < 0:
+            return
         
         if msg_type == "PBFT_PRE_PREPARE":
             self._handle_pre_prepare(msg)

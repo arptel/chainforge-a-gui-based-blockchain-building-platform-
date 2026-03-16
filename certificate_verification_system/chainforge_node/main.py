@@ -1,3 +1,8 @@
+import sys
+import os
+# Ensure the root of the project is in sys.path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 import argparse
 import time
 import threading

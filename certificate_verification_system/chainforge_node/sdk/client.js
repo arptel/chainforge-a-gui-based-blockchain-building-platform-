@@ -1,3 +1,5 @@
+import { SPVLightClient } from './base_client.js';
+
 class SmartContract {
     constructor(contractId, apiKey, baseUrl) {
         this.contractId = contractId;
@@ -39,18 +41,19 @@ function createContractProxy(contractId, apiKey, baseUrl) {
     });
 }
 
-export class ChainForgeClient {
-    constructor(baseUrl = "http://localhost:8000") {
-        this.baseUrl = baseUrl;
-        this.DataStore = createContractProxy("1000", "sys_key_datastore", this.baseUrl);
-        this.Validation = createContractProxy("1001", "sys_key_validation", this.baseUrl);
-        this.AccessControl = createContractProxy("1002", "sys_key_accesscontrol", this.baseUrl);
-        this.IdentityRegistry = createContractProxy("1003", "sys_key_identityregistry", this.baseUrl);
-        this.AuditLog = createContractProxy("1004", "sys_key_auditlog", this.baseUrl);
-        this.ValidatorCouncil = createContractProxy("1005", "sys_key_validatorcouncil", this.baseUrl);
-        this.MultiSig = createContractProxy("1006", "sys_key_multisig", this.baseUrl);
-        this.CertificateAuthority = createContractProxy("1007", "sys_key_certificateauthority", this.baseUrl);
-        this.AccessControl = createContractProxy("h4hscfu", "sk_9he4zo5b82ovje5nlwiui", this.baseUrl);
-        this.CertificateRegistry = createContractProxy("7vjd6ku", "sk_9r9suqrmwe4e0ar5gvbe", this.baseUrl);
+export class ChainForgeClient extends SPVLightClient {
+    constructor(spvNodeUrls = ["http://localhost:8080"], restBaseUrl = "http://localhost:8000") {
+        super(spvNodeUrls);
+        this.restBaseUrl = restBaseUrl;
+        this.DataStore = createContractProxy("1000", "sys_key_datastore", this.restBaseUrl);
+        this.Validation = createContractProxy("1001", "sys_key_validation", this.restBaseUrl);
+        this.AccessControl = createContractProxy("1002", "sys_key_accesscontrol", this.restBaseUrl);
+        this.IdentityRegistry = createContractProxy("1003", "sys_key_identityregistry", this.restBaseUrl);
+        this.AuditLog = createContractProxy("1004", "sys_key_auditlog", this.restBaseUrl);
+        this.ValidatorCouncil = createContractProxy("1005", "sys_key_validatorcouncil", this.restBaseUrl);
+        this.MultiSig = createContractProxy("1006", "sys_key_multisig", this.restBaseUrl);
+        this.CertificateAuthority = createContractProxy("1007", "sys_key_certificateauthority", this.restBaseUrl);
+        this.AccessControl = createContractProxy("h4hscfu", "sk_9he4zo5b82ovje5nlwiui", this.restBaseUrl);
+        this.CertificateRegistry = createContractProxy("7vjd6ku", "sk_9r9suqrmwe4e0ar5gvbe", this.restBaseUrl);
     }
 }

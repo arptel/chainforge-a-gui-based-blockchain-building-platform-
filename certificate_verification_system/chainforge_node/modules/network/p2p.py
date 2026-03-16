@@ -3,7 +3,15 @@ import json
 import threading
 import websockets
 from typing import List, Any, Set
-from interfaces.network import NetworkInterface
+
+import sys
+import os
+
+try:
+    from interfaces.network import NetworkInterface  # type: ignore
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+    from interfaces.network import NetworkInterface  # type: ignore
 
 class P2PNetwork(NetworkInterface):
     """
