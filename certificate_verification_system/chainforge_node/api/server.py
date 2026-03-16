@@ -76,7 +76,6 @@ def run(chain: Blockchain, port: int):
     def get_tx_proof(tx_hash: str):
         """
         Returns the transaction and Merkle proof for any successfully mined transaction hash.
-        (Added to align with universal SDKs)
         """
         for block in reversed(chain.chain):
             for i, tx in enumerate(block.transactions):
@@ -90,42 +89,6 @@ def run(chain: Blockchain, port: int):
                         "merkle_root": block.merkle_root
                     }
         raise HTTPException(status_code=404, detail="Transaction hash not found on the blockchain")
-
-    @app.get("/proof/cert/{cert_id}")
-    def get_cert_proof(cert_id: str):
-        """
-        Returns the transaction and Merkle proof for the most recent
-        interaction with a specific certificate ID.
-        """
-        import json
-        # Search backwards to find the latest tx modifying this cert_id
-        for block in reversed(chain.chain):
-            for i, tx in enumerate(block.transactions):
-                if tx.get("type") == "contract_call":
-                    raw_args = tx.get("args", {})
-                    
-                    # Safely parse args whether it's a dict or a JSON string (sent by certain network utilities)
-                    args = {}
-                    if isinstance(raw_args, dict):
-                        args = raw_args
-                    elif isinstance(raw_args, str):
-                        try:
-                            args = json.loads(raw_args)
-                        except json.JSONDecodeError:
-                            pass
-
-                    # Standard check for CertificateRegistry
-                    if args.get("cert_id") == cert_id:
-                        proof = generate_merkle_proof(block.transactions, i)
-                        return {
-                            "cert_id": cert_id,
-                            "tx": tx,
-                            "tx_hash": _hash_tx(tx),
-                            "block_index": block.index,
-                            "proof": proof,
-                            "merkle_root": block.merkle_root
-                        }
-        raise HTTPException(status_code=404, detail="Certificate transaction not found on the blockchain")
 
     contract_routes.set_chain(chain)
     app.include_router(contract_routes.router, prefix="/api/v1/contracts", tags=["Smart Contracts"])

@@ -1,40 +1,48 @@
+"""
+modules/consensus/pbft.py
+
+Practical Byzantine Fault Tolerance (PBFT) Consensus Implementation.
+This module implements a real 3-phase consensus protocol:
+1. Pre-Prepare: Leader broadcasts a block proposal.
+2. Prepare: Nodes acknowledge the proposal and broadcast their preparation.
+3. Commit: Nodes wait for a 2f+1 quorum of prepares, then broadcast a commit.
+
+Requires P2P network layer for message broadcasting and vote counting.
+"""
 import time
-import uuid
-from interfaces.consensus import ConsensusInterface
-from core.block import Block
+import json
+from typing import Dict, Any, List, Optional, Set
+import sys
+import os
+
+try:
+    from interfaces.consensus import ConsensusInterface  # type: ignore
+    from core.block import Block  # type: ignore
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+    from interfaces.consensus import ConsensusInterface  # type: ignore
+    from core.block import Block  # type: ignore
 
 class PBFTConsensus(ConsensusInterface):
-    """
-    Practical Byzantine Fault Tolerance.
-    Implements a mocked 3-phase network consensus (Pre-Prepare, Prepare, Commit).
-    """
-    def __init__(self, network_layer=None):
-        self.network = network_layer
+    def __init__(self, node_id: str, peers: Optional[List[str]] = None):
+        self.node_id = node_id
+        self.peers = peers or []
+        self.f = len(self.peers) // 3
+        self.quorum = 2 * self.f + 1
+        
+        # State tracking
+        self.pre_prepares: Dict[int, Dict[str, Any]] = {}  # sequence        # Vote storage
+        self.prepares: Dict[int, Dict[str, Set[str]]] = {}         # sequence -> {block_hash: {voters}}
+        self.commits: Dict[int, Dict[str, Set[str]]] = {}       # sequence -> {block_hash: {voters}}
+        self.committed_blocks: Dict[int, str] = {}         # sequence -> block_hash
+        
+        self.network: Any = None # Will be set by set_consensus_module
 
-    def validate_block(self, block: Block) -> bool:
-        # PBFT requires checking the 2/3 majority signature cache
-        # In this prototype, we mock this network-heavy check.
-        print(f"[PBFT] Validated 2/3 majority signatures for block {block.index}.")
-        return True
-
-    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Block:
-        print(f"\n[PBFT] Initiating 3-Phase BFT Commit for Node {miner_address}...")
+    def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Optional[Block]:
+        """Leader phase: Create and broadcast a PRE-PREPARE message."""
+        print(f"[PBFT] Node {self.node_id} proposing block {index}")
         
-        # 1. Pre-Prepare (Broadcast Intent)
-        print(f"[PBFT] [Phase 1] Casting Pre-Prepare proposal to peers...")
-        time.sleep(0.5) # Simulate network propagation latency
-        
-        # 2. Prepare (Wait for 2/3 peer responses)
-        # Normally: self.network.broadcast(...) and wait for peers to reply
-        print(f"[PBFT] [Phase 2] Awaiting 'Prepare' votes from >66% of network...")
-        time.sleep(0.5) 
-        
-        # 3. Commit
-        print(f"[PBFT] [Phase 3] >66% Prepare threshold reached! Broadcasting 'Commit'.")
-        time.sleep(0.2)
-        print(f"[PBFT] Consensus achieved. Appending block locally.")
-        
-        return Block(
+        block = Block(
             index=index,
             transactions=transactions,
             timestamp=time.time(),
@@ -42,6 +50,121 @@ class PBFTConsensus(ConsensusInterface):
             validator=miner_address,
             state_root=state_root
         )
+        
+        # Broadcast Pre-Prepare
+        msg = {
+            "type": "PBFT_PRE_PREPARE",
+            "view": 0,
+            "sequence": index,
+            "block": block.to_dict(),
+            "sender": self.node_id
+        }
+        
+        if self.network:
+            print(f"[PBFT] Broadcasting PRE-PREPARE for block {index}")
+            self.network.broadcast(msg)
+        else:
+            print("[PBFT] Warning: Network layer not attached. Fallback to single-node mode.")
+            return block
+            
+        return block
 
-    def commit_block(self, block: Block) -> bool:
-        return True
+    def validate_block(self, block: Block) -> bool:
+        """Verify PBFT consensus reached for this block."""
+        # In this implementation, we check if we have a commit quorum for this sequence/hash
+        seq = block.index
+        if seq == 0: return True # Genesis
+        
+        block_hash = block.hash
+        commit_voters = self.commits.get(seq, {}).get(block_hash, set())
+        
+        if len(commit_voters) >= self.quorum:
+            return True
+        
+        # If no peers, we allow local mining
+        if not self.peers:
+            return True
+            
+        print(f"[PBFT] Validation failed: Quorum not met for block {seq} (votes: {len(commit_voters)}/{self.quorum})")
+        return False
+
+    def handle_consensus_message(self, msg: Dict[str, Any]):
+        """Route incoming PBFT messages."""
+        try:
+            seq: int = int(str(msg.get("sequence", "-1")))
+        except (ValueError, TypeError):
+            return
+            
+        msg_type = msg.get("type")
+        sender = msg.get("sender")
+        
+        if seq < 0:
+            return
+        
+        if msg_type == "PBFT_PRE_PREPARE":
+            self._handle_pre_prepare(msg)
+        elif msg_type == "PBFT_PREPARE":
+            self._handle_prepare(msg)
+        elif msg_type == "PBFT_COMMIT":
+            self._handle_commit(msg)
+
+    def _handle_pre_prepare(self, msg):
+        seq = msg["sequence"]
+        block_data = msg["block"]
+        block_hash = Block.from_dict(block_data).hash
+        
+        print(f"[PBFT] Received PRE-PREPARE from {msg['sender']} for block {seq}")
+        self.pre_prepares[seq] = msg
+        
+        # Broadcast Prepare
+        prepare_msg = {
+            "type": "PBFT_PREPARE",
+            "view": 0,
+            "sequence": seq,
+            "block_hash": block_hash,
+            "sender": self.node_id
+        }
+        if self.network:
+            self.network.broadcast(prepare_msg)
+
+    def _handle_prepare(self, msg):
+        seq = msg["sequence"]
+        b_hash = msg["block_hash"]
+        sender = msg["sender"]
+        
+        print(f"[PBFT] Received PREPARE from {sender} for block {seq}")
+        
+        if seq not in self.prepares: self.prepares[seq] = {}
+        if b_hash not in self.prepares[seq]: self.prepares[seq][b_hash] = set()
+        
+        self.prepares[seq][b_hash].add(sender)
+        
+        # If we reached prepare quorum, broadcast Commit
+        if len(self.prepares[seq][b_hash]) >= self.quorum:
+            commit_msg = {
+                "type": "PBFT_COMMIT",
+                "view": 0,
+                "sequence": seq,
+                "block_hash": b_hash,
+                "sender": self.node_id
+            }
+            if self.network:
+                # Only broadcast commit once per sequence
+                if self.node_id not in self.commits.get(seq, {}).get(b_hash, set()):
+                    self.network.broadcast(commit_msg)
+
+    def _handle_commit(self, msg):
+        seq = msg["sequence"]
+        b_hash = msg["block_hash"]
+        sender = msg["sender"]
+        
+        print(f"[PBFT] Received COMMIT from {sender} for block {seq}")
+        
+        if seq not in self.commits: self.commits[seq] = {}
+        if b_hash not in self.commits[seq]: self.commits[seq][b_hash] = set()
+        
+        self.commits[seq][b_hash].add(sender)
+        
+        if len(self.commits[seq][b_hash]) >= self.quorum:
+            print(f"[PBFT] Quorum reached for block {seq}!")
+            self.committed_blocks[seq] = b_hash

@@ -1,4 +1,5 @@
-fastapi
+fvyper
+wasmtime
 uvicorn
 requests
 pydantic

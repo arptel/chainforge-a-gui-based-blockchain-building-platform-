@@ -1,6 +1,13 @@
 import ast
 import sys
-from interfaces.vm import VMInterface
+import sys
+import os
+
+try:
+    from interfaces.vm import VMInterface  # type: ignore
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+    from interfaces.vm import VMInterface  # type: ignore
 
 class OutOfGasException(Exception):
     pass

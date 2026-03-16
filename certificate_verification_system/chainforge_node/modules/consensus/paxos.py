@@ -11,20 +11,16 @@ on the next block in the sequence.
 4. Accepted: Nodes acknowledge the block.
 """
 import time
-from typing import Dict, Any, List, Optional, Set
-import sys
-import os
-
+from typing import Dict, Any, List, Optional
 try:
-    from interfaces.consensus import ConsensusInterface  # type: ignore
-    from core.block import Block  # type: ignore
+    from interfaces.consensus import ConsensusInterface
+    from core.block import Block
 except ImportError:
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-    from interfaces.consensus import ConsensusInterface  # type: ignore
-    from core.block import Block  # type: ignore
+    from chainforge.templates.chain_core.interfaces.consensus import ConsensusInterface
+    from chainforge.templates.chain_core.core.block import Block
 
 class PaxosConsensus(ConsensusInterface):
-    def __init__(self, node_id: str, peers: Optional[List[str]] = None):
+    def __init__(self, node_id: str, peers: List[str] = None):
         self.node_id = node_id
         self.peers = peers or []
         self.majority = (len(self.peers) // 2) + 1
@@ -33,13 +29,13 @@ class PaxosConsensus(ConsensusInterface):
         self.current_ballot = 0
         self.promised_ballot = 0
         self.accepted_ballot = 0
-        self.accepted_value: Optional[Block] = None
+        self.accepted_value = None
         
-        # Acceptor Vote Storage
-        self.promises: Dict[int, Set[str]] = {} # ballot -> {voters}
-        self.accepted_votes: Dict[int, Set[str]] = {} # ballot -> {voters}
+        # Vote counters
+        self.promises: Dict[int, set] = {} # ballot -> {voters}
+        self.accepted_votes: Dict[int, set] = {} # ballot -> {voters}
         
-        self.network: Any = None
+        self.network = None
 
     def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Optional[Block]:
         """Proposer phase 1: Send Prepare."""
@@ -83,18 +79,7 @@ class PaxosConsensus(ConsensusInterface):
         return False
 
     def handle_consensus_message(self, msg: Dict[str, Any]):
-        """Route incoming Paxos messages."""
-        try:
-            b: int = int(str(msg.get("ballot", "-1")))
-        except (ValueError, TypeError):
-            return
-            
         msg_type = msg.get("type")
-        sender = msg.get("sender")
-        
-        if b < 0:
-            return
-        
         if msg_type == "PAXOS_PREPARE":
             self._handle_prepare(msg)
         elif msg_type == "PAXOS_PROMISE":

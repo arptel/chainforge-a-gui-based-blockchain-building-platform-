@@ -8,20 +8,16 @@ that a block is only finalized if +2/3 of the nodes agree.
 Supports Block Locking and Heights.
 """
 import time
-from typing import Dict, Any, List, Optional, Set
-import sys
-import os
-
+from typing import Dict, Any, List, Optional
 try:
-    from interfaces.consensus import ConsensusInterface  # type: ignore
-    from core.block import Block  # type: ignore
+    from interfaces.consensus import ConsensusInterface
+    from core.block import Block
 except ImportError:
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-    from interfaces.consensus import ConsensusInterface  # type: ignore
-    from core.block import Block  # type: ignore
+    from chainforge.templates.chain_core.interfaces.consensus import ConsensusInterface
+    from chainforge.templates.chain_core.core.block import Block
 
 class TendermintConsensus(ConsensusInterface):
-    def __init__(self, node_id: str, peers: Optional[List[str]] = None):
+    def __init__(self, node_id: str, peers: List[str] = None):
         self.node_id = node_id
         self.peers = peers or []
         self.quorum = (len(self.peers) * 2 // 3) + 1
@@ -33,9 +29,9 @@ class TendermintConsensus(ConsensusInterface):
         self.locked_round = -1
         
         # Vote storage: height -> round -> type -> {block_hash: {voters}}
-        self.votes: Dict[int, Dict[int, Dict[str, Dict[str, Set[str]]]]] = {}
+        self.votes: Dict[int, Dict[int, Dict[str, Dict[str, set]]]] = {}
         
-        self.network: Any = None
+        self.network = None
 
     def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Optional[Block]:
         """Proposer: Start a new height/round and broadcast proposal."""
@@ -84,17 +80,10 @@ class TendermintConsensus(ConsensusInterface):
         return False
 
     def handle_consensus_message(self, msg: Dict[str, Any]):
-        try:
-            h: int = int(str(msg.get("height", "-1")))
-            r: int = int(str(msg.get("round", "-1")))
-        except (ValueError, TypeError):
-            return
-            
+        h = msg.get("height")
+        r = msg.get("round")
         msg_type = msg.get("type")
         
-        if h < 0 or r < 0:
-            return
-            
         if h not in self.votes: self.votes[h] = {}
         if r not in self.votes[h]: self.votes[h][r] = {"PRE_VOTE": {}, "PRE_COMMIT": {}}
         

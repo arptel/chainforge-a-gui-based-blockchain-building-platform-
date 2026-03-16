@@ -1,12 +1,8 @@
 import hashlib
-import sys
-import os
-
 try:
-    from interfaces.vm import VMInterface  # type: ignore
+    from interfaces.vm import VMInterface
 except ImportError:
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-    from interfaces.vm import VMInterface  # type: ignore
+    from chainforge.templates.chain_core.interfaces.vm import VMInterface
 
 try:
     import wasmtime

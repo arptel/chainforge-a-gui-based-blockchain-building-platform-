@@ -336,15 +336,10 @@ class Blockchain:
     # ------------------------------------------------------------------
 
     def _compute_state_root(self) -> str:
-        """
-        Deterministic SHA-256 hash of the current account state.
-        Two nodes with the same state will always produce the same root.
-        """
-        # Sort by key for determinism; serialize values as JSON
-        state_snapshot = json.dumps(
-            {k: self.state[k] for k in sorted(self.state)},
-            separators=(",", ":")
-        )
+        if self.runtime and hasattr(self.runtime, 'get_state_root'):
+            evm_root = self.runtime.get_state_root()
+            if evm_root: return evm_root
+        state_snapshot = json.dumps({k: self.state[k] for k in sorted(self.state)}, separators=(",", ":"))
         return hashlib.sha256(state_snapshot.encode()).hexdigest()
 
     @property

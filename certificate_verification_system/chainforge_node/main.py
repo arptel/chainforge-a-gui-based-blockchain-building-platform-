@@ -98,6 +98,10 @@ def main():
     # 3. Sync (depends on Chain, Network)
     sync = di.get_sync(chain, network)
 
+    # 5. Bind Consensus back to Network so it can route protocol messages
+    if hasattr(network, 'set_consensus_module'):
+        network.set_consensus_module(consensus)
+
     # 4. Bind Sync back to Network so Network knows how to resolve forks/gaps
     if hasattr(network, 'set_sync_module'):
         network.set_sync_module(sync)
@@ -124,7 +128,8 @@ def main():
         
     network_thread = threading.Thread(target=run_network)
     network_thread.daemon = True
-    network_thread.start()    
+    network_thread.start()
+    
     # Load persistence from disk before starting active mining loops
     if args.db_path:
         chain.load_from_disk()

@@ -1,3 +1,8 @@
+import sys
+import os
+# Ensure the root of the project is in sys.path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 import argparse
 import time
 import threading
@@ -97,6 +102,10 @@ def main():
 
     # 3. Sync (depends on Chain, Network)
     sync = di.get_sync(chain, network)
+
+    # 5. Bind Consensus back to Network so it can route protocol messages
+    if hasattr(network, 'set_consensus_module'):
+        network.set_consensus_module(consensus)
 
     # 4. Bind Sync back to Network so Network knows how to resolve forks/gaps
     if hasattr(network, 'set_sync_module'):

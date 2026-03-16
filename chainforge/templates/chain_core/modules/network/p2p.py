@@ -3,7 +3,15 @@ import json
 import threading
 import websockets
 from typing import List, Any, Set
-from interfaces.network import NetworkInterface
+
+import sys
+import os
+
+try:
+    from interfaces.network import NetworkInterface  # type: ignore
+except ImportError:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+    from interfaces.network import NetworkInterface  # type: ignore
 
 class P2PNetwork(NetworkInterface):
     """
@@ -25,12 +33,21 @@ class P2PNetwork(NetworkInterface):
         # We need a reference to the node's Blockchain to process incoming logic
         self.node_chain = None
         self.sync_module = None
+        self.consensus_module = None
         
     def set_chain(self, chain):
         self.node_chain = chain
 
     def set_sync_module(self, sync_module: Any):
         self.sync_module = sync_module
+
+    def set_consensus_module(self, consensus_module: Any):
+        """Bind a consensus module to the network for message routing."""
+        self.consensus_module = consensus_module
+        if hasattr(consensus_module, 'set_network'):
+            consensus_module.set_network(self)
+        elif hasattr(consensus_module, 'network'):
+            consensus_module.network = self
 
     async def start_server(self):
         # We rely on the FastAPI server mounting a /ws route for INCOMING connections
@@ -171,91 +188,74 @@ class P2PNetwork(NetworkInterface):
         # Run the async loop for this specific connection
         asyncio.run(_connect_and_listen())
 
-    def _handle_incoming_message(self, message_str: str, sender_ws=None):
-        """Route incoming JSON gossip to the blockchain core."""
+    async def _handle_incoming_message(self, message: str, websocket=None):
+        """
+        Route incoming JSON messages to the appropriate module.
+        """
         if not self.node_chain:
             return None
             
         try:
-            msg = json.loads(message_str)
-            msg_type = msg.get("type")
-            data = msg.get("data")
+            data = json.loads(message)
+            msg_type = data.get("type", "")
+
+            # 1. Route Consensus Messages (PBFT, Paxos, etc.)
+            if self.consensus_module and msg_type.startswith(("PBFT_", "PAXOS_", "TENDERMINT_", "HOTSTUFF_")):
+                self.consensus_module.handle_consensus_message(data)
+                return
+
+            msg_data = data.get("data")
             
             if msg_type == "PEER_DISCOVERY":
-                incoming_uri = data
-                # Don't connect to ourselves, and don't reconnect if already known.
+                incoming_uri = msg_data
                 if incoming_uri != self.my_uri and incoming_uri not in self.known_peers:
-                    print(f"[P2P Discovery] Discovered new peer: {incoming_uri} via gossip!")
+                    print(f"[P2P Discovery] Discovered new peer: {incoming_uri}")
                     self.connect_to_peer(incoming_uri)
-                    # Gossip the new peer to everyone else
                     self.broadcast_node_address(incoming_uri)
                     
             elif msg_type == "SYNC_REQUEST":
-                # For compatibility, if the active sync module provides a custom handler
-                # we can route it, but standard FullSync expects the node to serve blocks.
                 if hasattr(self.sync_module, 'handle_sync_request'):
-                    response_payload = self.sync_module.handle_sync_request(data)
+                    response_payload = self.sync_module.handle_sync_request(msg_data)
                     if response_payload: return response_payload
                 else:
-                    # Default block serving behavior (fallback)
-                    last_index = data.get("last_index", 0)
+                    last_index = msg_data.get("last_index", 0)
                     missing_blocks = [b.to_dict() for b in self.node_chain.chain if b.index > last_index]
                     if missing_blocks:
                         print(f"[P2P Sync] Serving {len(missing_blocks)} historical blocks to peer.")
                         return json.dumps({"type": "SYNC_RESPONSE", "data": missing_blocks})
                     
             elif msg_type == "SYNC_RESPONSE":
-                # We received historical blocks (or custom sync response data)
                 if self.sync_module and hasattr(self.sync_module, 'handle_sync_response'):
-                    # The sync module will decide how to apply this (e.g. handle forks)
-                    new_request = self.sync_module.handle_sync_response(data)
+                    new_request = self.sync_module.handle_sync_response(msg_data)
                     if new_request: return new_request
-                else:
-                    print(f"[P2P Sync] Warning: Received SYNC_RESPONSE but no sync_module can handle it.")
                     
             elif msg_type == "NEW_TRANSACTION":
-                # Only add if we don't already have it
-                if data not in self.node_chain.pending_transactions:
-                    self.node_chain.add_transaction(data)
+                if msg_data not in self.node_chain.pending_transactions:
+                    self.node_chain.add_transaction(msg_data)
                     
             elif msg_type == "NEW_BLOCK":
                 from core.block import Block
-                block = Block(
-                    index=data["index"],
-                    transactions=data["transactions"],
-                    timestamp=data["timestamp"],
-                    previous_hash=data["previous_hash"],
-                    validator=data.get("validator")
-                )
-                block.nonce = data.get("nonce", 0)
-                block.hash = data.get("hash")
+                block = Block.from_dict(msg_data)
                 
-                # Gap detection logic!
+                # Gap detection logic
                 if block.index > self.node_chain.last_block.index + 1:
                     print(f"[P2P] Detected gap! We are at {self.node_chain.last_block.index}, received {block.index}.")
                     if self.sync_module and hasattr(self.sync_module, 'handle_gap'):
-                        # Let the active sync implementation decide what to request
                         gap_request = self.sync_module.handle_gap(block.index)
                         if gap_request: return gap_request
                     else:
-                        print("[P2P] No sync_module available to handle gap. Requesting standard sync...")
                         return json.dumps({"type": "SYNC_REQUEST", "data": {"last_index": self.node_chain.last_block.index}})
                 elif block.index <= self.node_chain.last_block.index:
-                    # Ignore older or duplicate gossip
                     return None
                 
-                # We try to add it. chain.add_block validates it internally!
                 success = self.node_chain.add_block(block)
                 if success:
                     print(f"[P2P] Successfully appended block {block.index} from peer network!")
-                    # Clean mempool
                     if self.node_chain.role in ["full", "miner"]:
                         for b_tx in block.transactions:
                             if b_tx in self.node_chain.pending_transactions:
                                 self.node_chain.pending_transactions.remove(b_tx)
-                else:
-                    print(f"[P2P] Rejected invalid block {block.index} from peer network.")
-                        
+                                
         except Exception as e:
             print(f"[P2P] Failed to process incoming message: {e}")
 

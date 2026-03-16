@@ -1,6 +1,11 @@
-fastapi
+vyper
+eth-hash[pycryptodome]
+wasmtime
 uvicorn
 requests
 pydantic
 ecdsa>=0.18.0
 websockets>=11.0.3
+py-evm>=0.8.0-alpha.1
+eth-keys>=0.4.0
+eth-utils>=2.0.0

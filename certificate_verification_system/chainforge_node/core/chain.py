@@ -128,7 +128,14 @@ class Blockchain:
                 validator=miner_address,
                 state_root=simulated_state_root
             )
-            
+
+        # Some consensus implementations (e.g., Raft/Paxos) may choose not to propose a block
+        # if this node is not the leader/proposer. In that case, they return None.
+        # We must be robust to that and avoid crashes.
+        if new_block is None:
+            print("No block was proposed by the consensus module (not leader/proposer). Mining deferred.")
+            return False
+
         new_block._is_local_mine = True
 
         if self.add_block(new_block):
@@ -329,15 +336,10 @@ class Blockchain:
     # ------------------------------------------------------------------
 
     def _compute_state_root(self) -> str:
-        """
-        Deterministic SHA-256 hash of the current account state.
-        Two nodes with the same state will always produce the same root.
-        """
-        # Sort by key for determinism; serialize values as JSON
-        state_snapshot = json.dumps(
-            {k: self.state[k] for k in sorted(self.state)},
-            separators=(",", ":")
-        )
+        if self.runtime and hasattr(self.runtime, 'get_state_root'):
+            evm_root = self.runtime.get_state_root()
+            if evm_root: return evm_root
+        state_snapshot = json.dumps({k: self.state[k] for k in sorted(self.state)}, separators=(",", ":"))
         return hashlib.sha256(state_snapshot.encode()).hexdigest()
 
     @property

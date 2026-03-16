@@ -1,3 +1,8 @@
+import sys
+import os
+# Ensure the root of the project is in sys.path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
