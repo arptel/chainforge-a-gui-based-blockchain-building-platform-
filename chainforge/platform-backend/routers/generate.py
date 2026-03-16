@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy.orm import Session
-import schemas, database, crud
-from .. import auth
-from generator.builder import ChainBuilder
+from fastapi import APIRouter, Depends, HTTPException, Response  # type: ignore
+from sqlalchemy.orm import Session  # type: ignore
+import schemas, database, crud  # type: ignore
+import auth  # type: ignore
+from generator.builder import ChainBuilder  # type: ignore
 
 router = APIRouter(
     prefix="/generate",
@@ -23,7 +23,7 @@ def download_chain(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     # Validate Config
-    from generator.validator import ConfigValidator
+    from generator.validator import ConfigValidator  # type: ignore
     errors = ConfigValidator.validate(project.config)
     if errors:
         raise HTTPException(status_code=400, detail=f"Configuration error: {', '.join(errors)}")
@@ -37,7 +37,7 @@ def download_chain(
         headers={"Content-Disposition": f"attachment; filename=chain_{project.id}.zip"}
     )
 
-from fastapi import Body
+from fastapi import Body  # type: ignore
 
 @router.post("/default-contracts")
 def get_default_contracts(

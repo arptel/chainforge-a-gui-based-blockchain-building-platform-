@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException  # type: ignore
+from sqlalchemy.orm import Session  # type: ignore
 from typing import List
-import schemas, database, crud
-from .. import auth
+import schemas, database, crud  # type: ignore
+import auth  # type: ignore
 
 router = APIRouter(
     prefix="/projects",
