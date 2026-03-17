@@ -1,16 +1,22 @@
 class CertificateAuthority:
     def __init__(self):
-        self.certs = {}
-        self.revoked = []
+        pass
 
-    def issueCert(self, cert_id, subject_data):
-        self.certs[cert_id] = subject_data
+    def issueCert(self, cert_id, subject_data, state: dict = None):
+        if state is None: return False
+        if 'ca_certs' not in state: state['ca_certs'] = {}
+        state['ca_certs'][cert_id] = subject_data
         return True
 
-    def revokeCert(self, cert_id):
-        if cert_id not in self.revoked:
-            self.revoked.append(cert_id)
+    def revokeCert(self, cert_id, state: dict = None):
+        if state is None: return False
+        if 'ca_revoked' not in state: state['ca_revoked'] = []
+        if cert_id not in state['ca_revoked']:
+            state['ca_revoked'].append(cert_id)
         return True
 
-    def verifyCert(self, cert_id):
-        return cert_id in self.certs and cert_id not in self.revoked
+    def verifyCert(self, cert_id, state: dict = None):
+        if state is None: return False
+        certs = state.get('ca_certs', {})
+        revoked = state.get('ca_revoked', [])
+        return cert_id in certs and cert_id not in revoked

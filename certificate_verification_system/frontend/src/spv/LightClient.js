@@ -10,33 +10,38 @@ export class SPVLightClient {
      * 1. Synchronize Block Headers from Nodes
      */
     async syncHeaders() {
-        // In a real SPV, we query multiple peers and mathematically pick the longest PoW chain.
-        // For the demo, we gracefully try Node A, fallback to Node B.
-        let synced = false;
+        // Collect headers from all available nodes to find the overall longest verified chain.
+        let longestVerifiedHeaders = [];
 
         for (const url of this.nodes) {
             try {
                 console.log(`[SPV] Attempting to sync headers from ${url}...`);
                 const res = await fetch(`${url}/headers`);
                 if (res.ok) {
-                    this.headers = await res.json();
+                    const candidateHeaders = await res.json();
 
-                    // Natively verify the chain of headers
-                    const hwValid = await this._verifyHeaderHashes(this.headers);
-                    if (!hwValid) throw new Error("Cryptographic header validation failed on sync!");
-
-                    console.log(`[SPV] Synced ${this.headers.length} verified block headers from ${url}.`);
-                    synced = true;
-                    break;
+                    // Cryptographically verify the links in this candidate chain
+                    const isValid = await this._verifyHeaderHashes(candidateHeaders);
+                    if (isValid) {
+                        console.log(`[SPV] Fetched ${candidateHeaders.length} verified headers from ${url}.`);
+                        if (candidateHeaders.length > longestVerifiedHeaders.length) {
+                            longestVerifiedHeaders = candidateHeaders;
+                        }
+                    } else {
+                        console.warn(`[SPV] Headers from ${url} failed cryptographic validation!`);
+                    }
                 }
             } catch (err) {
-                console.warn(`[SPV] Fallback: Node ${url} failed to sync headers.`, err);
+                console.warn(`[SPV] Node ${url} unreachable or returned error during header sync.`, err);
             }
         }
 
-        if (!synced) {
-            throw new Error("CRITICAL: Failed to sync SPV block headers from any known chain peers.");
+        if (longestVerifiedHeaders.length === 0) {
+            throw new Error("CRITICAL: Failed to sync verified SPV block headers from any known chain peers.");
         }
+
+        this.headers = longestVerifiedHeaders;
+        console.log(`[SPV] Sync complete. Tracking longest verified chain: Height ${this.headers.length}.`);
     }
 
     /**

@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from typing import Dict, Any, Type
 from interfaces.consensus import ConsensusInterface
 from interfaces.network import NetworkInterface
@@ -97,6 +101,11 @@ class DependencyInjector:
             raise ValueError(f"Unknown consensus algorithm: {algo}")
         
         # Instantiate with specific config params if needed
+        if algo == "pbft":
+            node_id = self.config.get("node_id", "node1")
+            peers = self.config.get("peers", [])
+            return cls(node_id=node_id, peers=peers)
+            
         return cls()
 
     def get_network(self) -> NetworkInterface:

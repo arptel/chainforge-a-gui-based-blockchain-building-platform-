@@ -90,6 +90,27 @@ def run(chain: Blockchain, port: int):
                     }
         raise HTTPException(status_code=404, detail="Transaction hash not found on the blockchain")
 
+    @app.get("/proof/cert/{cert_id}")
+    def get_cert_proof(cert_id: str):
+        """
+        Custom SPV endpoint: Find the most recent transaction involving a certificate and return its Merkle proof.
+        """
+        for b in reversed(chain.chain):
+            for i, tx in enumerate(b.transactions):
+                args = tx.get("args", {})
+                if isinstance(args, dict) and args.get("cert_id") == cert_id:
+                    try:
+                        proof = generate_merkle_proof(b.transactions, i)
+                        return {
+                            "block_index": b.index,
+                            "merkle_root": b.merkle_root,
+                            "tx": tx,
+                            "proof": proof
+                        }
+                    except Exception as e:
+                        continue
+        raise HTTPException(status_code=404, detail="Certificate transaction not found")
+
     contract_routes.set_chain(chain)
     app.include_router(contract_routes.router, prefix="/api/v1/contracts", tags=["Smart Contracts"])
 

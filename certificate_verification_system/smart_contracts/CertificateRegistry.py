@@ -3,19 +3,21 @@
 
 class CertificateRegistry:
     def __init__(self):
-        # Maps cert_id -> { 'student_name': str, 'degree': str, 'year': int, 'issuer_id': str, 'is_revoked': bool }
-        self.certificates = {}
+        pass
 
-    def issue_certificate(self, caller: str, cert_id: str, student_name: str, degree: str, year: int, issuer_id: str) -> dict:
+    def issue_certificate(self, caller: str, cert_id: str, student_name: str, degree: str, year: int, issuer_id: str, state: dict = None) -> dict:
         """
-        Issues a new certificate. 
-        Note: The FastAPI backend MUST verify that 'issuer_id' has the 'ISSUER' role 
-        via the AccessControl contract before calling this method.
+        Issues a new certificate on the blockchain state.
         """
-        if cert_id in self.certificates:
+        if state is None:
+            return {"error": "Execution environment did not provide global state"}
+            
+        cert_key = f"cert_{cert_id}"
+        if cert_key in state:
             return {"error": "Certificate ID already exists"}
             
-        self.certificates[cert_id] = {
+        state[cert_key] = {
+            "cert_id": cert_id,
             "student_name": student_name,
             "degree": degree,
             "year": year,
@@ -25,15 +27,18 @@ class CertificateRegistry:
         
         return {"status": "success", "cert_id": cert_id}
 
-    def revoke_certificate(self, caller: str, cert_id: str, requester_id: str) -> dict:
+    def revoke_certificate(self, caller: str, cert_id: str, requester_id: str, state: dict = None) -> dict:
         """
-        Revokes a certificate. 
-        The requester_id must be the original issuer or an authorized party.
+        Revokes a certificate safely.
         """
-        if cert_id not in self.certificates:
+        if state is None:
+            return {"error": "Execution environment did not provide global state"}
+            
+        cert_key = f"cert_{cert_id}"
+        if cert_key not in state:
             return {"error": "Certificate not found"}
             
-        cert = self.certificates[cert_id]
+        cert = state[cert_key]
         
         # Only the original issuer can revoke it
         if cert["issuer_id"] != requester_id:
@@ -45,20 +50,29 @@ class CertificateRegistry:
         cert["is_revoked"] = True
         return {"status": "success", "message": "Certificate revoked"}
 
-    def verify_certificate(self, caller: str, cert_id: str) -> dict:
+    def verify_certificate(self, caller: str, cert_id: str, state: dict = None) -> dict:
         """Verifies if a certificate is valid and not revoked."""
-        if cert_id not in self.certificates:
+        if state is None:
+            return {"error": "Execution environment did not provide global state"}
+            
+        cert_key = f"cert_{cert_id}"
+        if cert_key not in state:
             return {"status": "not_found", "is_valid": False}
             
-        cert = self.certificates[cert_id]
+        cert = state[cert_key]
         if cert["is_revoked"]:
             return {"status": "revoked", "is_valid": False}
             
         return {"status": "valid", "is_valid": True}
 
-    def get_certificate(self, caller: str, cert_id: str) -> dict:
+    def get_certificate(self, caller: str, cert_id: str, state: dict = None) -> dict:
         """Returns the full details of a certificate."""
-        if cert_id not in self.certificates:
+        if state is None:
+            return {"error": "Execution environment did not provide global state"}
+            
+        cert_key = f"cert_{cert_id}"
+        if cert_key not in state:
             return {"error": "Certificate not found"}
             
-        return {"status": "success", "data": self.certificates[cert_id]}
+        return {"status": "success", "data": state[cert_key]}
+
