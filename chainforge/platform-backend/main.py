@@ -1,5 +1,10 @@
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
 # Ensure the root of the project is in sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -18,10 +23,8 @@ app = FastAPI(
 )
 
 # CORS Setup
-origins = [
-    "http://localhost:3000",
-    "http://localhost:8000",
-]
+cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000")
+origins = [origin.strip() for origin in cors_origins_str.split(",")]
 
 app.add_middleware(
     CORSMiddleware,

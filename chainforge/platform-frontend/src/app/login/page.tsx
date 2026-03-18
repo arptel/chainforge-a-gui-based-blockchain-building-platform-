@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import axios from "axios";
+import api from "@/lib/api";
 
 export default function LoginPage() {
     const [username, setUsername] = useState("");
@@ -26,7 +26,7 @@ export default function LoginPage() {
 
         try {
             // In a real app, use env var for API URL
-            const response = await axios.post("http://localhost:8000/auth/token",
+            const response = await api.post("/auth/token",
                 new URLSearchParams({
                     username: username,
                     password: password,

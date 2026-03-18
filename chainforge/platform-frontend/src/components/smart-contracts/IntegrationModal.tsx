@@ -11,6 +11,7 @@ interface IntegrationModalProps {
 }
 
 export function IntegrationModal({ isOpen, onClose, contract, initialTab = 'code' }: IntegrationModalProps) {
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
     const [activeTab, setActiveTab] = useState<'code' | 'integration' | 'uses'>(initialTab);
     const [copied, setCopied] = useState(false);
 
@@ -32,7 +33,7 @@ export function IntegrationModal({ isOpen, onClose, contract, initialTab = 'code
 # 2. Use the generated SDK (recommended)
 from sdk.client import Client
 
-client = Client(base_url="http://localhost:8000")
+client = Client(base_url="${apiBaseUrl}")
 
 # Call method on '${contract.name}'
 # Arguments must match your contract's method signature
@@ -41,7 +42,7 @@ print(result)
 `.trim();
 
     const curlCode = `
-curl -X POST http://localhost:8000/api/v1/contracts/execute/${contract.id}/your_method_name \\
+curl -X POST ${apiBaseUrl}/api/v1/contracts/execute/${contract.id}/your_method_name \\
   -H "Content-Type: application/json" \\
   -H "x-api-key: ${contract.apiKey}" \\
   -d '{"args": {"arg1": "value"}}'

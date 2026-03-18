@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
-import axios from "axios";
+import api from "@/lib/api";
 import {
     CheckCircle2, ChevronRight, ChevronLeft, Globe, Lock, Shield, Users,
     Cpu, Server, Activity, Zap, Coins, BadgeCheck, Crown, RefreshCw,
@@ -30,11 +30,9 @@ export default function CreateProjectPage() {
         setLoading(true);
         console.log("Submitting Config:", config);
         try {
-            await axios.post("http://localhost:8000/projects/", {
+            await api.post("/projects/", {
                 name: projectName || "My Blockchain",
                 config: config
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
             });
             router.push("/dashboard");
             reset();

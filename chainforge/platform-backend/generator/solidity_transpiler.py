@@ -1,13 +1,14 @@
 import os
 import google.generativeai as genai
 
-# Try to get API key from environment, or use a default if user provides one later
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyAVA0cKA2SwVXh2Btwo4xpkHvN2S-gwXyQ")
+# Try to get API key from environment
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 def configure_gemini(api_key):
     global GEMINI_API_KEY
     GEMINI_API_KEY = api_key
-    genai.configure(api_key=GEMINI_API_KEY)
+    if api_key:
+        genai.configure(api_key=GEMINI_API_KEY)
 
 # Initialize if key exists in env
 if GEMINI_API_KEY:

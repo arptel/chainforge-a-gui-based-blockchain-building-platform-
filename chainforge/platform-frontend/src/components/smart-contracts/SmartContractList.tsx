@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,20 +50,14 @@ export const SmartContractList: React.FC<SmartContractListProps> = ({ contracts 
         if (!projectConfig) return;
         const fetchDefaults = async () => {
             try {
-                const token = localStorage.getItem('token');
-                const res = await axios.post("http://localhost:8000/generate/default-contracts", projectConfig, {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {}
-                });
+                const res = await api.post("/generate/default-contracts", projectConfig);
                 if (res.data && res.data.contracts) {
                     const fetchedDefaults = res.data.contracts;
                     setDefaultContracts(fetchedDefaults);
 
                     // Push the combined list of defaults + user contracts up to the parent form state
-                    // Make sure we don't accidentally duplicate them if they already exist in `contracts`
                     const userOnlyContracts = contracts.filter(c => !c.isSystem);
 
-                    // Only trigger onChange if the defaults are actually different from what we already have
-                    // to prevent unnecessary re-renders in the parent
                     const currentDefaults = contracts.filter(c => c.isSystem);
                     if (JSON.stringify(fetchedDefaults) !== JSON.stringify(currentDefaults)) {
                         onChange([...fetchedDefaults, ...userOnlyContracts]);
@@ -74,7 +68,7 @@ export const SmartContractList: React.FC<SmartContractListProps> = ({ contracts 
             }
         };
         fetchDefaults();
-    }, [networkConfigDeps]); // Only re-run when the structural network config changes
+    }, [networkConfigDeps]);
 
     const allContracts = [...contracts];
     const selectedContract = allContracts.find(c => c.id === selectedContractId);

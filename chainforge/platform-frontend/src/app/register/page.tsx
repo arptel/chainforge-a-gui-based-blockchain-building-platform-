@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import axios from "axios";
+import api from "@/lib/api";
 
 export default function RegisterPage() {
     const [username, setUsername] = useState("");
@@ -24,7 +24,7 @@ export default function RegisterPage() {
         setError("");
 
         try {
-            await axios.post("http://localhost:8000/auth/register", {
+            await api.post("/auth/register", {
                 username,
                 email,
                 password

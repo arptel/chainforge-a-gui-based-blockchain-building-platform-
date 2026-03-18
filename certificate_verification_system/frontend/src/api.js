@@ -47,4 +47,9 @@ export const getHistory = async () => {
     return response.data;
 };
 
+export const browseFolder = async () => {
+    const response = await api.get('/api/browse-folder');
+    return response.data;
+};
+
 export default api;

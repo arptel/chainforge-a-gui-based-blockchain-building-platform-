@@ -1,8 +1,6 @@
 from sqlalchemy.orm import Session
 import models, schemas
-from passlib.context import CryptContext
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from security import get_password_hash
 
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
@@ -20,7 +18,7 @@ def create_user(db: Session, user: schemas.UserCreate):
     password_to_hash = user.password[:72] if len(user.password) > 72 else user.password
     
     try:
-        hashed_password = auth.get_password_hash(password_to_hash)
+        hashed_password = get_password_hash(password_to_hash)
     except Exception as e:
         raise ValueError(f"Password hashing failed: {str(e)}")
     

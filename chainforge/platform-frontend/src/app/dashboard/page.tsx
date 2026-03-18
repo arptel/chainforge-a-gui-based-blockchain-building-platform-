@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/store/auth";
-import axios from "axios";
+import api from "@/lib/api";
 import { Plus, Server } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -24,9 +24,7 @@ export default function DashboardPage() {
         if (!confirm("Are you sure you want to delete this project? This action cannot be undone.")) return;
 
         try {
-            await axios.delete(`http://localhost:8000/projects/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await api.delete(`/projects/${id}`);
             setProjects(projects.filter(p => p.id !== id));
         } catch (error) {
             console.error("Failed to delete project:", error);
@@ -36,9 +34,7 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (token) {
-            axios.get("http://localhost:8000/projects/", {
-                headers: { Authorization: `Bearer ${token}` }
-            }).then(res => setProjects(res.data))
+            api.get("/projects/").then(res => setProjects(res.data))
                 .catch(err => console.error(err));
         }
     }, [token]);

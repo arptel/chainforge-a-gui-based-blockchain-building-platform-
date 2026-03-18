@@ -185,7 +185,8 @@ class ChainBuilder:
                  
                  # Generate SDK
                  zip_file.writestr("sdk/__init__.py", "")
-                 zip_file.writestr("sdk/config.py", 'API_BASE_URL = "http://localhost:8000"\n')
+                 api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+                 zip_file.writestr("sdk/config.py", f'API_BASE_URL = "{api_base_url}"\n')
                  client_code = self._generate_sdk_client(contracts)
                  zip_file.writestr("sdk/client.py", client_code)
                  
@@ -278,7 +279,8 @@ function createContractProxy(contractId, apiKey, baseUrl) {
 }
 
 export class ChainForgeClient extends SPVLightClient {
-    constructor(spvNodeUrls = ["http://localhost:8080"], restBaseUrl = "http://localhost:8000") {
+    const apiBaseUrl = os.getenv("API_BASE_URL", "http://localhost:8000");
+    constructor(spvNodeUrls = ["http://localhost:8080"], restBaseUrl = apiBaseUrl) {
         super(spvNodeUrls);
         this.restBaseUrl = restBaseUrl;
 """

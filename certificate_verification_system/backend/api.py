@@ -189,3 +189,27 @@ async def get_certificate_history(current_user: dict = Depends(require_issuer)):
         return issued_certs
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
+@api_router.get("/browse-folder")
+async def browse_folder():
+    """
+    Opens a directory picker on the host machine and returns the selected path.
+    Useful for local installations where the user needs to select a DB storage path.
+    """
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        
+        root = tk.Tk()
+        root.withdraw()  # Hide the main window
+        root.attributes('-topmost', True)  # Bring to front
+        
+        directory = filedialog.askdirectory(title="Select Database Storage Directory")
+        root.destroy()
+        
+        if not directory:
+            return {"path": ""}
+            
+        return {"path": directory.replace("\\", "/")}
+    except Exception as e:
+        print(f"[API] Error opening directory picker: {e}")
+        raise HTTPException(status_code=500, detail="Could not open directory picker. Please enter path manually.")

@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/store/auth";
-import axios from "axios";
+import api from "@/lib/api";
 import {
     Download, Package, Server, Activity, Settings, Globe, Cpu, Layers, RefreshCw,
     Coins, Cloud, Shield, Crown, Database, Key, Timer, Scale, Network, BadgeCheck, ChevronLeft
@@ -24,9 +24,7 @@ export default function ProjectDetailsPage() {
 
     useEffect(() => {
         if (token && id) {
-            axios.get(`http://localhost:8000/projects/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            }).then(res => setProject(res.data));
+            api.get(`/projects/${id}`).then(res => setProject(res.data));
         }
     }, [id, token]);
 
@@ -34,8 +32,7 @@ export default function ProjectDetailsPage() {
 
     const handleDownload = async () => {
         try {
-            const response = await axios.post(`http://localhost:8000/generate/${id}/download`, {}, {
-                headers: { Authorization: `Bearer ${token}` },
+            const response = await api.post(`/generate/${id}/download`, {}, {
                 responseType: 'blob'
             });
 
@@ -53,9 +50,7 @@ export default function ProjectDetailsPage() {
     const handleInstall = async () => {
         setIsInstalling(true);
         try {
-            const res = await axios.post(`http://localhost:8000/generate/${id}/install`, {}, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await api.post(`/generate/${id}/install`, {});
             alert(`Success: ${res.data.message}`);
         } catch (e: any) {
             console.error("Install failed", e);

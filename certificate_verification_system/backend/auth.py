@@ -40,9 +40,16 @@ def init_db():
             blockchain_address TEXT,
             private_key TEXT,
             role TEXT,
-            node_url TEXT
+            node_url TEXT,
+            db_path TEXT DEFAULT ""
         )
     ''')
+    
+    # Migration: Add db_path column if it doesn't exist
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN db_path TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # already exists
     
     # Check if empty
     cursor.execute('SELECT COUNT(*) FROM users')
@@ -89,7 +96,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 async def login(req: LoginRequest):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute('SELECT password, blockchain_address, private_key, role, node_url FROM users WHERE username = ?', (req.username,))
+    cursor.execute('SELECT password, blockchain_address, private_key, role, node_url, db_path FROM users WHERE username = ?', (req.username,))
     row = cursor.fetchone()
     conn.close()
     
@@ -108,6 +115,10 @@ async def login(req: LoginRequest):
         }, 
         expires_delta=access_token_expires
     )
+    
+    # Ensure their node is running!
+    from node_manager import ensure_node_running
+    ensure_node_running(req.username, row[4], row[5])
     
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -140,9 +151,9 @@ async def register(req: RegisterRequest):
     role = "ISSUER"
     
     cursor.execute('''
-        INSERT INTO users (username, password, blockchain_address, private_key, role, node_url)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (req.username, req.password, blockchain_address, private_key, role, node_url))
+        INSERT INTO users (username, password, blockchain_address, private_key, role, node_url, db_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (req.username, req.password, blockchain_address, private_key, role, node_url, req.db_path))
     
     conn.commit()
     conn.close()

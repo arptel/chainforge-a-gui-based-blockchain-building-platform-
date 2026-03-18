@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { register } from '../api';
-import { KeyRound, Lock, User, Cpu, HardDrive, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { KeyRound, Lock, User, Cpu, HardDrive, Eye, EyeOff, ShieldCheck, FolderOpen } from 'lucide-react';
+import { register, browseFolder } from '../api';
 
 const LOADING_STEPS = [
     "Setting up account...",
@@ -32,6 +32,18 @@ export default function Register() {
         }
         return () => clearInterval(interval);
     }, [loading]);
+
+    const handleBrowse = async () => {
+        try {
+            const data = await browseFolder();
+            if (data.path) {
+                setDbPath(data.path);
+            }
+        } catch (err) {
+            console.error('Failed to open directory picker:', err);
+            setError('Could not open directory picker. Please type path manually.');
+        }
+    };
 
     const handleRegister = async (e) => {
         e.preventDefault();
@@ -111,15 +123,25 @@ export default function Register() {
 
                             <div>
                                 <label className="block text-[11px] font-black text-slate-400 tracking-[0.2em] uppercase mb-3 ml-1">Data Storage Path</label>
-                                <div className="relative group">
-                                    <HardDrive className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-                                    <input
-                                        type="text"
-                                        value={dbPath}
-                                        onChange={(e) => setDbPath(e.target.value)}
-                                        className="slate-input w-full rounded-xl py-4.5 pl-12 pr-4 text-sm font-bold tracking-tight placeholder:text-slate-300"
-                                        placeholder={`e.g., C:/Users/Docs/chain.db`}
-                                    />
+                                <div className="flex gap-4">
+                                    <div className="relative group flex-1">
+                                        <HardDrive className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                                        <input
+                                            type="text"
+                                            value={dbPath}
+                                            onChange={(e) => setDbPath(e.target.value)}
+                                            className="slate-input w-full rounded-xl py-4.5 pl-12 pr-4 text-sm font-bold tracking-tight placeholder:text-slate-300"
+                                            placeholder={`e.g., C:/Users/Docs/chain.db`}
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleBrowse}
+                                        className="px-6 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-black transition-all flex items-center justify-center gap-2 group whitespace-nowrap"
+                                    >
+                                        <FolderOpen className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                        <span className="text-[10px] uppercase tracking-widest">Browse</span>
+                                    </button>
                                 </div>
                                 <p className="text-[10px] text-slate-400 mt-4 ml-1 font-black uppercase tracking-widest leading-relaxed">
                                    Required: Where your college data will be stored.
