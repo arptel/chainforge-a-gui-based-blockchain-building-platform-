@@ -47,9 +47,11 @@ def delete_project(
     db: Session = Depends(database.get_db),
     current_user: schemas.User = Depends(auth.get_current_user)
 ):
-    project = crud.get_projects(db, skip=0, limit=1000) # Inefficient but simple check
-    # ideally we check if it exists first
-    db_project = crud.delete_project(db, project_id)
-    if db_project is None:
+    # Check if project exists and verify ownership
+    project = db.query(crud.models.Project).filter(crud.models.Project.id == project_id).first()
+    if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    if project.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    db_project = crud.delete_project(db, project_id)
     return db_project
