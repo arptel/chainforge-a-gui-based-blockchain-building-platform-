@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChainForge Network Simulator</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Toolbar -->
+        <div id="toolbar" class="toolbar">
+            <div class="toolbar-section">
+                <button id="btn-load-project" class="btn btn-primary">Load Project</button>
+                <button id="btn-reset" class="btn btn-secondary" disabled>Reset</button>
+                <button id="btn-replay" class="btn btn-secondary" disabled>Replay Last Tx</button>
+            </div>
+            <div class="toolbar-section">
+                <label for="speed-slider">Animation Speed:</label>
+                <input id="speed-slider" type="range" min="0.25" max="4" step="0.25" value="1" disabled>
+                <span id="speed-display">1.0x</span>
+            </div>
+            <div class="toolbar-section">
+                <button id="btn-export-trace" class="btn btn-tertiary" disabled>Export Trace</button>
+            </div>
+        </div>
+
+        <!-- Status Banner -->
+        <div id="status-banner" class="banner">
+            <span id="status-badge" class="badge">Not loaded</span>
+            <span id="status-text" class="status-text">Load a project to begin</span>
+        </div>
+
+        <!-- Main Content -->
+        <div id="main-content" class="main-content">
+            <!-- Left Panel: Config Summary -->
+            <div id="config-panel" class="panel panel-config">
+                <h2>Project Configuration</h2>
+                <div id="config-banner" class="config-card">
+                    <!-- Populated after project load -->
+                </div>
+                <div id="error-area" class="error-area"></div>
+            </div>
+
+            <!-- Center Panel: Network View -->
+            <div id="network-panel" class="panel panel-network">
+                <div class="panel-header">
+                    <h2>Network Topology</h2>
+                    <button id="btn-add-node" class="btn btn-small" disabled>+ Add Node</button>
+                </div>
+                <div id="network-view-container" class="network-view-container">
+                    <canvas id="network-canvas" class="network-canvas"></canvas>
+                    <!-- Fallback: SVG or table for node list -->
+                    <div id="node-list" class="node-list hidden"></div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Node Details -->
+            <div id="node-detail-panel" class="panel panel-detail">
+                <div class="panel-header">
+                    <h2>Node Details</h2>
+                    <button id="btn-close-detail" class="btn-close">&times;</button>
+                </div>
+                <div id="node-detail" class="node-detail">
+                    <p class="placeholder">Select a node to view details</p>
+                </div>
+                <div id="node-actions" class="node-actions hidden">
+                    <button class="btn btn-danger" id="btn-attack-drop">Drop Node</button>
+                    <button class="btn btn-warning" id="btn-attack-reject">Reject Block</button>
+                    <button class="btn btn-dark" id="btn-attack-partition">Partition</button>
+                    <button class="btn btn-dark" id="btn-attack-slow">Slow Node</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Consensus Status Panel (Below Network) -->
+        <div id="consensus-status" class="consensus-status">
+            <h3>Consensus State</h3>
+            <div id="consensus-phase-display" class="phase-display">
+                <!-- Populated by consensus renderer -->
+            </div>
+            <div id="vote-tally" class="vote-tally hidden">
+                <!-- Vote counts: X accepted / Y rejected / Z pending -->
+            </div>
+            <div id="fault-tolerance" class="fault-tolerance hidden">
+                <!-- Fault tolerance display -->
+            </div>
+        </div>
+
+        <!-- Chain Panel (Below Consensus) -->
+        <div id="chain-panel" class="chain-panel">
+            <h3>Blockchain</h3>
+            <div id="block-list" class="block-list">
+                <!-- Populated with committed blocks -->
+            </div>
+        </div>
+
+        <!-- Metrics Bar (Bottom) -->
+        <div id="metrics-bar" class="metrics-bar">
+            <div class="metric">
+                <span class="metric-label">Nodes:</span>
+                <span id="metric-nodes-count" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Blocks:</span>
+                <span id="metric-blocks-count" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Transactions:</span>
+                <span id="metric-transactions-count" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">TPS:</span>
+                <span id="metric-tps" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Consensus:</span>
+                <span id="metric-consensus" class="metric-value">-</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Modules -->
+    <script src="js/config/config-parser.js"></script>
+    <script src="js/event-handlers/event-dispatcher.js"></script>
+    <script src="js/event-handlers/node-events.js"></script>
+    <script src="js/event-handlers/block-events.js"></script>
+    <script src="js/event-handlers/consensus-events.js"></script>
+    <script src="js/event-handlers/sync-events.js"></script>
+    <script src="js/event-handlers/transaction-events.js"></script>
+    <script src="js/consensus-renderers/consensus-base.js"></script>
+    <script src="js/consensus-renderers/pow-renderer.js"></script>
+    <script src="js/consensus-renderers/pos-renderer.js"></script>
+    <script src="js/consensus-renderers/poa-renderer.js"></script>
+    <script src="js/consensus-renderers/pbft-renderer.js"></script>
+    <script src="js/consensus-renderers/raft-renderer.js"></script>
+    <script src="js/consensus-renderers/tendermint-renderer.js"></script>
+    <script src="js/consensus-renderers/hotstuff-renderer.js"></script>
+    <script src="js/consensus-renderers/paxos-renderer.js"></script>
+    <script src="js/consensus-renderers/none-renderer.js"></script>
+    <script src="js/ws-client.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

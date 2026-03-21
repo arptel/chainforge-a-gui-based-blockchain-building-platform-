@@ -1,0 +1,9 @@
+# ChainForge Network Simulator - None Consensus Test Config
+network_type: permissioned
+governance: consortium
+consensus: none
+node_roles: [full, validator]
+sync_mode: realtime
+max_nodes: 10
+block_time_ms: 3000
+modules: [token]

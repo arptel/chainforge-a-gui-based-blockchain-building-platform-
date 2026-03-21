@@ -1,0 +1,550 @@
+ChainForge Network Simulator
+Product Requirements & Build Specification
+Version 2.0  |  Enhanced & Detailed Edition
+1. Overview & Objectives
+Critical Clarification: This is NOT a simulation. The blockchain actually runs in the background. Real nodes are spawned, real transactions are submitted, real consensus rounds execute, and real blocks are committed. The visualizer reads live events from the running chain and renders them as animations. Everything shown on screen reflects what is actually happening in the chain — not a fake recreation of it.
+ChainForge Network Simulator is a live visualization layer that sits on top of a real, running ChainForge-generated blockchain. When a user adds a node, a real node process is started. When a transaction is created, it is actually submitted to the chain. The animations on screen are driven by real events emitted by the chain — block proposals, votes, commits, sync progress — translated into visual form in real time.
+Primary goals:
+Spawn and manage real blockchain node processes from the UI — not mock objects.
+Submit real transactions to the running chain and visualize their actual lifecycle.
+Stream live events from chain nodes (via WebSocket or polling) and render them as animations.
+Dynamically adapt the UI and available actions based solely on the loaded config.yaml — no hardcoding.
+Serve as a demo-ready, visually provable proof that the ChainForge-generated chain works correctly.
+⚠ Note: The animations are a mirror of reality, not a fabrication. If the chain stalls, the animation stalls. If a node goes offline, the visualization reflects that immediately because it is reading from the actual node.
+2. Tech Stack
+2.1 Frontend
+Priority Note: Frontend aesthetics are NOT a priority for this project. A plain, functional HTML page is completely acceptable. The focus must be on correctness of functionality, simulation logic, consensus behavior, and config-driven rules — not visual polish. Do not invest time in styling, UI frameworks, or animations if they come at the cost of building the core engine correctly.
+A minimal frontend is sufficient. A single HTML file with vanilla JavaScript is perfectly valid. The following are loose guidelines, not requirements:
+Framework
+Plain HTML + vanilla JS preferred. A framework is optional and only if already comfortable with it.
+Styling
+No requirement. Basic readable layout is enough — no CSS frameworks needed.
+Visualization
+A simple node list or table view is acceptable. SVG/Canvas graph is a bonus, not mandatory.
+State Management
+Plain JS objects are fine. No library required.
+Config Parsing
+js-yaml in browser, or parse on the backend and serve as JSON.
+Build Tool
+None required. A single index.html that opens in a browser is a valid deliverable.
+2.2 Backend (Required — Not Optional)
+The backend is mandatory. It is responsible for spawning real blockchain node processes, brokering all communication between the running chain and the frontend, and streaming live chain events via WebSocket. There is no fallback simulation mode — the chain must actually run.
+Runtime
+Node.js 20+ (Express) OR Python 3.11+ (FastAPI) — choose one
+Node Process Manager
+Spawns and manages ChainForge node processes (one OS process per logical node). Tracks PID, port, and status per node.
+Config Reader
+Reads config.yaml from the loaded project, validates it, and serves it as JSON to the frontend.
+Transaction Bridge
+Receives transaction requests from the frontend and submits them to the real chain via its RPC/API.
+Event Streamer
+Subscribes to chain node event feeds (new block, vote cast, peer joined, sync update) and forwards them to the frontend over WebSocket.
+Adapter Pattern
+One adapter per consensus type implementing a common IChainAdapter interface. The correct adapter is selected at load time based on config.yaml consensus field.
+Node API Proxy
+All node API calls from the frontend are proxied through the backend — the frontend never calls chain nodes directly.
+WebSocket Event Stream:
+The backend maintains a persistent WebSocket connection to the frontend. All chain events are pushed over this connection in real time. The frontend never polls — it only listens and renders.
+Every event pushed over WebSocket must follow this envelope:
+{ type: EventType, timestamp: number, nodeId: string, payload: object }
+Required event types the backend must emit:
+BLOCK_PROPOSED
+A new block proposal has been initiated. Payload: blockHeight, proposerNodeId, txCount.
+VOTE_CAST
+A validator has cast a vote. Payload: voterNodeId, blockHeight, vote (accept|reject), round.
+BLOCK_COMMITTED
+A block has been finalized and appended. Payload: blockHeight, hash, proposerNodeId, txCount, commitTime.
+BLOCK_REJECTED
+Consensus failed for a proposed block. Payload: blockHeight, reason, votesSummary.
+NODE_JOINED
+A new node process has started and connected to peers. Payload: nodeId, role, address.
+NODE_OFFLINE
+A node process has stopped or become unreachable. Payload: nodeId, reason.
+SYNC_PROGRESS
+A syncing node has downloaded more blocks. Payload: nodeId, currentHeight, targetHeight, syncMode.
+SYNC_COMPLETE
+A node has finished syncing. Payload: nodeId, finalHeight.
+CONSENSUS_PHASE
+The consensus round has entered a new phase (PBFT, Tendermint, HotStuff). Payload: phase, round, nodeId.
+TX_BROADCAST
+A transaction has been broadcast to the mempool. Payload: txId, fromNodeId, toNodeId.
+LEADER_ELECTED
+A new leader/proposer has been selected. Payload: nodeId, term/round.
+3. config.yaml — Canonical Schema
+Everything in the simulator UI is derived from this file. The schema below is the contract between ChainForge project generation and this simulator.
+3.1 Expected Fields
+Field
+Type
+Description
+network_type
+string
+public | permissioned
+governance
+string
+centralized | consortium | decentralized
+consensus
+string
+hotstuff | none | paxos | pbft | poa | pos | pow | raft | tendermint
+node_roles
+string[]
+Array of allowed roles: miner, full, light, validator, authority
+sync_mode
+string
+batch | fast | full | light | realtime | snapshot
+max_nodes
+number
+Maximum nodes allowed on the network (0 = unlimited)
+block_time_ms
+number
+Target block time in milliseconds (used to pace animations)
+modules
+string[]
+ChainForge modules included (e.g. token, governance, bridge)
+api_endpoint
+string
+(Optional) Base URL of a running blockchain node API
+require_auth
+boolean
+Whether the permissioned network needs an auth token to join
+3.2 Example config.yaml
+network_type: permissioned
+governance: consortium
+consensus: pbft
+node_roles: [full, validator, light]
+sync_mode: full
+max_nodes: 20
+block_time_ms: 3000
+modules: [token, governance]
+api_endpoint: http://localhost:8545
+require_auth: true
+3.3 Parsing Rules
+The config is parsed immediately when a project is loaded.
+If a required field is missing, the simulator shows a specific error naming the missing field — not a generic error.
+Unknown fields are ignored (forward compatibility).
+The parsed config is stored in global state and never re-read during a session unless the user explicitly reloads.
+4. Core Feature Specifications
+4.1 Project Loading
+The user loads a ChainForge project by either uploading a ZIP or selecting a folder (via browser File API or a local path in the backend bridge mode).
+Acceptance flow:
+Validate that config.yaml exists at the root — if not, show: "This does not appear to be a valid ChainForge project. config.yaml not found."
+Parse config.yaml and validate all required fields are present.
+Initialize simulator state (see Section 5) from parsed config.
+Show a summary card: network type, consensus, governance, available node roles, and modules loaded.
+Prompt user to add the first node before any other action is available.
+⚠ Note: If api_endpoint is set in config and is reachable, switch to live bridge mode and show a green 'Live' badge. Otherwise, run in simulation mode with a gray 'Simulated' badge.
+4.2 Node Creation System
+When the user adds a node, the backend spawns a real ChainForge node process on the local machine. The frontend reflects the node's actual status as reported by the process — it does not assume success.
+Add Node flow:
+User clicks "Add Node" and selects a role from the dropdown (populated from config.node_roles).
+The frontend sends a POST /nodes request to the backend with the selected role.
+The backend spawns a new ChainForge node process with the appropriate role flags, assigns it a port, and registers it.
+The backend waits for the node process to emit a ready signal (or times out after a configurable period).
+Once ready, the backend emits a NODE_JOINED WebSocket event to the frontend.
+The frontend receives the event and renders the new node in the network graph with an entrance animation.
+The node immediately begins syncing (emitting SYNC_PROGRESS events) — the frontend renders the sync animation in response to these real events.
+Failure handling:
+If the node process fails to start, the backend emits NODE_OFFLINE with reason. The frontend shows the specific error returned by the process.
+If network_type is permissioned, the backend enforces the admin-only join rule before spawning the process — it does not rely on the frontend to enforce this.
+Node limits:
+If max_nodes > 0 and the limit is reached, the backend rejects the POST /nodes request with a 403 and the frontend shows the appropriate error. The limit is enforced server-side, not only in the UI.
+4.3 Node Visualization
+Nodes are rendered as interactive circles on an SVG canvas. Position is managed by a simple force-simulation layout (or manual drag-and-drop).
+Leader / Proposer
+Gold (#C9A227) filled circle, crown icon, pulsing ring
+Validator
+Blue (#2E75B6) filled circle, checkmark icon
+Full Node
+Green (#2E8B57) filled circle, server icon
+Light Node
+Gray (#888888) outlined circle, feather icon
+Miner
+Orange (#E07B39) filled circle, pickaxe icon
+Authority (PoA)
+Purple (#6A0DAD) filled circle, shield icon
+Connections between nodes are drawn as thin lines. Line opacity represents connection strength or message recency — lines briefly brighten when a packet passes through them.
+Each node label shows: [Role] Node-{N} and below it the current block height in smaller text.
+4.4 Transaction Creation
+When the user creates a transaction, it is actually submitted to the running chain via the backend. The animation is driven by real events returned by the chain — not a pre-scripted sequence.
+Permission matrix (enforced server-side):
+centralized governance
+Only the designated leader node can initiate a transaction. Backend rejects submissions from non-leader nodes with 403.
+consortium governance
+Any validator node can initiate. Backend verifies the submitting node's role before forwarding.
+decentralized / public
+Any miner or full node can initiate. Backend forwards to the node's mempool.
+Permission is enforced at the backend level. The frontend may disable UI elements for convenience, but the backend is the authoritative gate — it will reject unauthorized submissions regardless of what the frontend sends.
+Transaction submission flow:
+User selects a node and fills in the transaction form (recipient, amount, memo).
+Frontend sends POST /transaction to backend with fromNodeId, toNodeId, and payload.
+Backend validates permissions, then submits the transaction to the selected node's RPC endpoint.
+Once the chain node accepts the transaction into its mempool, the backend emits TX_BROADCAST over WebSocket.
+The frontend receives TX_BROADCAST and begins the broadcast animation — driven by this real event, not a timer.
+4.5 Block Creation Animation (Event-Driven)
+Every animation step is triggered by a real WebSocket event from the chain. The frontend does not run animations on a timer or guess what should happen next — it waits for the chain to tell it what happened, then renders it.
+Step 1 — TX_BROADCAST event received:
+The backend emits TX_BROADCAST when the chain node confirms the transaction is in its mempool.
+Frontend renders: a packet dot animates outward from the originating node along connection lines.
+A floating label "TX Broadcast" follows the leading packet.
+Step 2 — CONSENSUS_PHASE (Propose) event received:
+The backend emits CONSENSUS_PHASE with phase='propose' when the chain's proposer begins building a block.
+Frontend renders: the proposer node pulses, a "Building Block #N" panel appears with the real block height from the event payload.
+Step 3 — VOTE_CAST events received:
+As each validator on the real chain casts a vote, the backend emits a VOTE_CAST event.
+Frontend renders each vote as it arrives — green beam for accept, red beam for reject — in the actual order they occur on the chain.
+Step 4 — BLOCK_COMMITTED or BLOCK_REJECTED event received:
+When the chain finalizes the outcome, the backend emits BLOCK_COMMITTED or BLOCK_REJECTED.
+Frontend renders the commit (block slides into chain view) or rejection (block shatters) based on the real outcome.
+All block details shown (hash, tx count, proposer, vote tally) come directly from the event payload — no client-side fabrication.
+⚠ Note: The speed slider does not slow down the chain. It only adjusts how fast the frontend renders the animation for each incoming event. The chain runs at its own pace regardless of the slider setting.
+4.6 Validation Visualization
+Each validator node independently reviews the proposed block and sends a response back to the proposer.
+Accept: A thick GREEN beam animates from the validator back to the proposer. The validator's circle briefly flashes green.
+Reject: A thick RED beam animates from the validator back to the proposer. The validator's circle briefly flashes red.
+A running tally panel shows: "Votes: N accepted / M rejected / K pending"
+Whether a rejection causes a block to fail depends on the consensus rules (see Section 4.7).
+⚠ Note: Simulated validators accept by default unless the user has triggered an Attack Simulation (see Section 6.1).
+4.7 Consensus Visualization
+The consensus animation is the most important differentiator between blockchain configurations. It must accurately reflect the loaded consensus type. The simulator supports all nine consensus types listed below — each has a distinct animation and logic flow.
+1. PoW (Proof of Work):
+All miner nodes show a spinning 'mining' animation (rotating arc around the node).
+A global 'Hash Race' ticker shows each miner's current simulated attempts per second.
+One miner 'wins' (determined probabilistically by the simulator) — its animation stops and a trophy icon briefly appears.
+The winning miner becomes the proposer for this round.
+Fault tolerance display: show estimated hash power per miner. If attack simulation gives one miner >50%, show a 51% Attack Warning banner.
+2. PoS (Proof of Stake):
+Each validator node is shown with a stake weight label (simulated value set at node creation).
+A 'Validator Selection' animation runs: nodes light up briefly in a weighted random selection sequence, then the chosen validator is highlighted.
+The selected validator proposes the block and broadcasts it to all other validators.
+Other validators vote to accept or reject — majority by stake weight (not node count) determines outcome.
+Display the total stake and each validator's percentage share in the consensus panel.
+3. PoA (Proof of Authority):
+Authority nodes are shown with a shield icon and distinct purple color.
+Block proposal goes to all authority nodes who approve sequentially.
+Each authority 'stamps' the block — a stamp animation plays on the block packet as it reaches each authority.
+Once all authorities have stamped, the block is finalized.
+If any authority node is offline, show: "Waiting for authority stamp from [Node Name]" and pause finalization.
+4. PBFT (Practical Byzantine Fault Tolerance):
+Three distinct phases are shown with labeled phase banners:
+Pre-Prepare: Primary node sends proposed block to all replicas.
+Prepare: Each replica broadcasts a Prepare message to all other replicas (O(n²) messages — show as a mesh of lines).
+Commit: Once 2f+1 Prepare messages are received, each replica broadcasts Commit to all others.
+A phase progress bar shows how many replicas have completed each phase.
+f is derived as: f = floor((validator_count - 1) / 3). Display: "Tolerates up to f={N} Byzantine faults."
+If more than f nodes are offline or rejecting, show: "Consensus stalled — too many faulty nodes."
+5. Raft:
+Show the current Raft term number prominently in the consensus panel.
+The leader node continuously sends Heartbeat packets to all followers at a fixed interval.
+Block proposal goes directly from leader to all followers as an AppendEntries message.
+Followers respond with ACK — shown as green pulses back to the leader.
+On majority ACK (N/2 + 1), the leader commits the block and notifies all followers.
+If the leader is dropped (attack simulation), animate an election: followers transition to Candidate state, broadcast RequestVote packets, and the first to reach majority becomes the new leader.
+6. Tendermint:
+Four phases shown with labeled banners:
+Propose: A proposer (rotated round-robin) sends a block proposal to all validators.
+Prevote: Each validator broadcasts a Prevote message (accept or nil) to all others.
+Precommit: If a validator receives 2/3+ Prevotes for the same block, it broadcasts Precommit.
+Commit: If a validator receives 2/3+ Precommits, the block is committed.
+Show the current round and height prominently. Tendermint can run multiple rounds per height if no block achieves 2/3 — animate the round incrementing.
+Display: "Requires 2/3+ of validators ({N} of {total}) to commit."
+Deterministic proposer rotation: highlight which node is the expected proposer each round.
+7. HotStuff:
+Three-phase linear BFT protocol — show phases with labeled banners:
+Prepare: Leader sends Prepare message with new block. Validators respond with Prepare votes.
+Pre-Commit: Leader collects 2f+1 Prepare votes, sends Pre-Commit QC (Quorum Certificate). Validators respond.
+Commit: Leader sends Commit QC. Validators lock on the block and commit.
+Show the Quorum Certificate (QC) as a special aggregated packet — visually distinct from regular vote packets (larger, with a seal icon).
+Display the view number (equivalent to round) and the current leader.
+HotStuff is pipelined — show that the next block's Prepare phase can begin while the current block's Commit is being gathered. Visualize this as two simultaneous pipeline stages.
+Display: "Linear communication complexity: O(n) per phase."
+8. Paxos:
+Two phases shown with labeled banners:
+Prepare (Phase 1): Proposer sends Prepare(n) to all acceptors. Acceptors respond with Promise(n) if n is the highest they've seen.
+Accept (Phase 2): Proposer sends Accept(n, value) to all acceptors. Acceptors respond with Accepted if they haven't promised a higher n.
+Show the proposal number (n) prominently — it increments each round.
+If a proposer fails to reach majority in Phase 1, animate a new proposer election with a higher proposal number.
+Display acceptor state: each acceptor node shows its highest promised n and last accepted value.
+Note: Paxos reaches consensus on a single value per round — map this to block proposal in the simulator.
+9. None (No Consensus):
+When consensus is set to 'none', the network operates with no consensus mechanism — any node can propose and commit a block unilaterally.
+Show a yellow warning banner: "No consensus configured. Any node can commit blocks without agreement."
+Transaction goes from originating node directly to block commit — no voting, no broadcast to validators.
+Useful for single-node development chains or testing environments.
+The fault tolerance display shows: "N/A — no consensus mechanism active."
+4.8 Block Commit & Chain View
+The right-side panel shows the blockchain as a horizontal sequence of blocks with arrows between them.
+On commit (block accepted):
+The new block slides in from the right with a bounce animation.
+All node circles update their block height label (+1).
+A success toast appears: "Block #N committed — proposer: [Node Name]"
+On rejection (block rejected):
+The proposed block packet shatters (particle explosion animation on canvas) and disappears.
+A failure toast appears: "Block rejected — insufficient votes."
+The proposer node shows a brief red outline.
+Block details panel (on click):
+Block number and timestamp
+Proposer node name and role
+Number of transactions
+Simulated hash (sha256-like hex string, computed client-side)
+List of validator votes
+4.9 Node State & Sync Visualization
+Every node has an internal state that the simulator tracks and displays on click.
+Field
+Type
+Description
+blockHeight
+number
+The highest block this node has accepted
+syncStatus
+enum
+syncing | synced | stale | offline
+pendingTx
+number
+Count of transactions in this node's mempool
+role
+string
+miner | validator | full | light | authority
+isLeader
+boolean
+Whether this node is the current round leader/proposer
+latency
+number
+Simulated network latency in ms (affects animation timing)
+voteHistory
+object[]
+Last 10 votes cast by this node in consensus rounds
+Sync Modes — Animation Behavior by Type:
+The sync_mode field in config.yaml determines how new nodes catch up to the chain. All animations in this section are driven by real SYNC_PROGRESS WebSocket events from the backend — the progress values, block numbers, and completion signals all come from the actual running node process.
+1. Full Sync:
+The new node downloads and replays every block from genesis to the current height.
+Animate a continuous stream of full block packets (solid squares) flowing to the new node — each packet corresponds to a real SYNC_PROGRESS event batch.
+The new node's block height counter increments based on the currentHeight value in each SYNC_PROGRESS event payload.
+Show a progress bar: "Syncing block {currentHeight} of {targetHeight}" — values from real event payload.
+2. Light Sync:
+The node downloads only block headers, not full transaction data.
+Animate small outlined (hollow) square packets labeled "Header" — one per SYNC_PROGRESS event.
+After the SYNC_COMPLETE event arrives, show a "Proof Verification" step representing the node's Merkle proof checks.
+Display: "Light sync complete — headers verified. Transaction data not stored."
+The node is permanently marked with a feather icon to indicate it holds headers only.
+3. Fast Sync:
+The node skips historical blocks and downloads only a recent state snapshot plus block headers for the remaining gap.
+Animate in two stages driven by SYNC_PROGRESS event sub-types: first a large snapshot packet transfer, then a burst of recent block packets.
+Display: "Fast sync: downloading state snapshot at block {N}... then catching up {M} remaining blocks" — values from event payload.
+4. Snapshot Sync:
+The node downloads a full state snapshot at a specific checkpoint block.
+Animate a single large snapshot packet transfer. On SYNC_COMPLETE, jump the node's height counter directly to the snapshot block number — not incrementing one by one.
+Display the snapshot block number from the event payload: "Restoring from snapshot at block {N}."
+5. Batch Sync:
+The node downloads blocks in batches. Each SYNC_PROGRESS event represents one batch completing.
+Animate groups of block packets arriving together in waves — one wave per SYNC_PROGRESS event.
+Show batch progress: "Batch {N} of {total}: blocks {start}–{end}" — derived from event payload.
+Between events, show a brief processing pause before the next wave.
+6. Realtime Sync:
+The node joins already at or near the current chain height. No historical catch-up needed.
+On NODE_JOINED, the backend reports the node's starting height. If it matches the chain tip, the node goes directly to syncStatus = 'synced'.
+Going forward, BLOCK_COMMITTED events arrive at this node the same as all other synced nodes.
+Display: "Realtime sync — no historical catch-up required."
+⚠ Note: All sync animations are entirely driven by real events from the backend. The speed slider only controls how fast the frontend renders the animation for each event — it does not affect the actual speed of the node's sync process.
+4.10 Error & Rule Enforcement
+All errors must be specific, contextual, and actionable. Generic errors are not acceptable.
+Invalid node type
+"[role] nodes are not available in this blockchain. Supported roles: [list from config]"
+Permission denied (permissioned net)
+"This is a permissioned network. Only the admin node can add new peers."
+Transaction not allowed
+"Only [role] nodes can create transactions in a [governance] governance model."
+Max nodes reached
+"Maximum node limit ([max_nodes]) reached for this configuration."
+Config field missing
+"Invalid ChainForge project: required field '[field]' is missing from config.yaml."
+Node offline
+"Node is offline. Bring it back online before initiating a transaction."
+4.11 Speed Control
+A horizontal slider is always visible in the toolbar. It controls the pace of all animations.
+0.25x (Slow)
+For step-by-step teaching. Each animation phase is exaggerated in length.
+1x (Normal)
+Default. Reflects realistic approximate block times.
+2x (Fast)
+For demos. Condenses visual feedback without skipping steps.
+4x (Ultra)
+For stress testing the visualization with many transactions.
+The speed multiplier applies to all timeouts and animation durations. It does not skip any visual steps.
+4.12 Reset & Replay
+Reset: Clears all nodes, blocks, and transactions. Reloads config and returns to post-load state. Shows a confirmation dialog.
+Replay Last Transaction: Re-runs the entire animation sequence for the most recent transaction, using stored state snapshots. Useful for demos and walkthroughs.
+Export Trace: Downloads a JSON log of all events in the current session (node joins, transactions, consensus rounds, votes, commits) for offline analysis.
+5. State Management Architecture
+This is the most critical section for implementation correctness. All simulator behavior depends on a well-defined global state. This can be implemented using plain JavaScript objects — no library is required.
+5.1 Global State (Plain JS Object or Any Store)
+The state is divided into four logical groups. Implement however is most comfortable — a plain JS object, a class, or a library:
+configSlice
+Holds the parsed config.yaml object.
+Set once on load, read-only during session.
+networkSlice
+nodes: Map<NodeId, NodeState> — all current nodes and their state
+edges: Edge[] — connection pairs between nodes
+packets: Packet[] — currently animating packets on the canvas
+leaderNodeId: NodeId | null — current consensus leader
+chainSlice
+blocks: Block[] — committed blocks in order
+pendingBlock: PendingBlock | null — the block currently going through consensus
+currentRound: number — consensus round counter
+uiSlice
+selectedNodeId: NodeId | null — for the node detail panel
+speedMultiplier: number — from the speed slider (0.25 to 4)
+simulationMode: 'simulated' | 'live' — whether backend API is in use
+lastError: string | null — for error toasts
+replayBuffer: Event[] — ordered list of all events for replay
+5.2 State Transitions
+All state changes are triggered by real WebSocket events from the backend — not by user actions directly. User actions send requests to the backend; the backend performs the real operation; the resulting chain events drive state updates.
+NODE_JOINED event
+Creates NodeState entry in networkSlice, triggers entrance animation, sets syncStatus to 'syncing'
+TX_BROADCAST event
+Creates pending TX entry, triggers broadcast animation from the node identified in event payload
+CONSENSUS_PHASE event
+Updates current consensus phase in chainSlice, triggers phase-specific animation
+VOTE_CAST event
+Adds vote to pendingBlock.votes, triggers beam animation from the voting node
+BLOCK_COMMITTED event
+Moves pendingBlock to blocks[], updates all node heights from event payload, triggers commit animation
+BLOCK_REJECTED event
+Clears pendingBlock, triggers shatter animation, logs reason from event payload
+NODE_OFFLINE event
+Sets node syncStatus to 'offline', grays out node, triggers fault tolerance recalculation
+SYNC_PROGRESS event
+Updates node blockHeight and progress bar values from event payload
+SYNC_COMPLETE event
+Sets node syncStatus to 'synced', clears progress bar, normalizes node appearance
+LEADER_ELECTED event
+Updates leaderNodeId in networkSlice, highlights new leader node
+6. Advanced Features (Core Priority)
+⚠ Note: These are NOT optional extras. Fault tolerance, attack simulation, and live metrics are central to demonstrating blockchain value. They must be implemented in v1.
+6.1 Attack Simulation
+Users can simulate adversarial conditions to show how the network responds.
+Available attacks:
+Drop Node: Mark a node as offline. Remove it from consensus. Show how consensus continues (or fails if too many nodes are dropped).
+Reject Block: Force a specific validator to reject the current block proposal. Show how the vote tally is affected.
+Partition Network: Split nodes into two groups with no connections between them. Show that neither partition can reach consensus alone (if below threshold).
+Slow Node: Apply a high latency multiplier to a specific node. Show delayed vote responses in the animation.
+Each attack is triggered from a right-click context menu on the target node. A red warning banner appears while an attack is active.
+6.2 Fault Tolerance Demo
+The simulator must display — and enforce — the theoretical fault tolerance of the loaded consensus.
+PBFT
+f = floor((N-1)/3). Tolerates up to f Byzantine faults. If >f nodes are offline/rejecting, show consensus stall.
+Raft
+Majority required: N/2 + 1 nodes must be live. Show leader election when leader is dropped.
+Tendermint
+Requires 2/3+ validators. If <2/3 are live, consensus halts. Show 'waiting for 2/3 quorum' message.
+HotStuff
+Requires 2f+1 of 3f+1 validators. Same threshold as PBFT but show as linear pipeline stall.
+Paxos
+Requires majority of acceptors. If majority is unavailable, proposer retries with higher proposal number.
+PoW
+51% attack simulation — if one miner controls >50% hash power, show block override animation.
+PoS
+Stake-weighted majority. Show how fault tolerance changes as high-stake validators go offline.
+PoA
+All authorities must be live for finality. Any offline authority delays block stamping indefinitely.
+None
+No fault tolerance — single node failure can halt or corrupt the chain. Show warning banner.
+6.3 Network Delay Simulation
+A global latency slider (0ms – 2000ms) adds artificial delay to all inter-node packet animations.
+Individual node latency can be set via right-click context menu.
+When latency > 500ms, the simulator shows an "async behavior" warning and may demonstrate the difference in message ordering between nodes.
+6.4 Live Metrics Dashboard
+A metrics strip is pinned at the bottom of the screen and updates in real time.
+TPS (Transactions/sec)
+Count of committed transactions over the last 10 seconds, rolling.
+Block Time
+Average ms between the last 5 committed blocks.
+Consensus Latency
+Time from transaction broadcast to block commit in ms.
+Node Count
+Live / Total nodes. Live = nodes with syncStatus = 'synced'.
+Fault Tolerance
+Current f value and how many more nodes can fail before consensus stalls.
+7. Component Architecture
+7.1 Frontend Structure
+Reminder: A single index.html with inline JS is a fully acceptable frontend. The structure below describes the logical sections that must exist — not the technical framework used to implement them.
+The frontend must provide the following functional sections, regardless of how they are implemented:
+Config Loader
+A file input or path field to load config.yaml. Shows a summary of the loaded config.
+Node Manager
+A way to add nodes (button + role selector) and see current nodes (list or graph).
+Transaction Panel
+Select a node, trigger a transaction, and see the result.
+Consensus Display
+Shows what phase the consensus is in and the current vote tally.
+Chain View
+A list or table of committed blocks, clickable for details.
+Metrics Strip
+Live counters: TPS, block time, node count, fault tolerance status.
+Error Display
+Inline or toast-style error messages for rule violations.
+If a visual node graph is implemented, the suggested logical structure is:
+index.html
+  #toolbar          -- Speed slider, Reset, Replay
+  #config-banner    -- Loaded config summary
+  #network-view     -- Node graph or node list table
+  #node-detail      -- Shown on node click/select
+  #chain-panel      -- Block list
+  #metrics-bar      -- Bottom counters
+  #consensus-status -- Phase / vote display
+  #error-area       -- Validation messages
+7.2 Backend API
+The backend is the core engine. It manages real node processes, bridges the frontend to the chain, and is the sole source of truth for all state. The frontend is purely a renderer.
+REST Endpoints:
+GET /config
+Returns parsed and validated config.yaml as JSON
+POST /nodes
+Spawns a new ChainForge node process. Body: { role }. Returns nodeId, port, pid.
+DELETE /nodes/:id
+Terminates the node process. Emits NODE_OFFLINE event.
+POST /transaction
+Submits a transaction to the specified node's RPC. Body: { fromNodeId, toNodeId, payload }.
+GET /blocks
+Returns the current committed block list from the chain.
+GET /nodes
+Returns the list of currently running node processes and their status.
+GET /health
+Returns { chainRunning: bool, nodeCount: N, blockHeight: N, consensus: string }.
+WebSocket:
+Single persistent WebSocket endpoint: ws://host/events
+All chain events are pushed to this stream as they occur — frontend subscribes on load.
+On reconnect, the backend replays the last N events so the frontend can restore its state.
+IChainAdapter interface:
+Each consensus type has its own adapter. The correct one is selected at startup based on config.yaml:
+interface IChainAdapter {
+  spawnNode(role: string, port: number): Promise<NodeProcess>;
+  terminateNode(nodeId: string): Promise<void>;
+  submitTransaction(tx: Transaction): Promise<TxHash>;
+  getBlocks(since: number): Promise<Block[]>;
+  getConsensusState(): Promise<ConsensusState>;
+  subscribeToEvents(handler: (event: ChainEvent) => void): void;
+}
+// Implementations: PoWAdapter, PoSAdapter, PoAAdapter, PBFTAdapter,
+//                  RaftAdapter, TendermintAdapter, HotStuffAdapter,
+//                  PaxosAdapter, NoneAdapter
+8. Deliverables
+The following files and modules must be produced:
+frontend/ — HTML/JS frontend with all functional sections listed in Section 7.1
+frontend/ws-client.js — WebSocket client that listens to backend events and dispatches state updates
+frontend/event-handlers/ — One handler per event type (BLOCK_COMMITTED, VOTE_CAST, SYNC_PROGRESS, etc.)
+frontend/consensus-renderers/ — One rendering module per consensus type that maps CONSENSUS_PHASE events to animations
+frontend/config/ — config.yaml parser and validator
+backend/ — Express or FastAPI server
+backend/process-manager/ — Spawns, monitors, and terminates ChainForge node processes
+backend/adapters/ — IChainAdapter + one implementation per consensus type (all 9)
+backend/event-bridge/ — Subscribes to chain node event feeds, normalizes them, pushes to frontend WebSocket
+sample/config.yaml — A valid sample config for demo and testing
+README.md — Setup, run, and demo instructions including how to start the chain and the visualizer together
+⚠ Note: All code must be modular. No consensus-type logic may appear inside generic components. All 9 consensus adapters must be implemented — no stubs.
+9. Implementation Constraints
+Rule: The blockchain must actually run. There is no simulation fallback mode — real node processes must be spawned and managed.
+Rule: All frontend state must be derived from real WebSocket events. The frontend never fabricates state or runs timers to guess what the chain is doing.
+Rule: No hardcoding of blockchain types — all behavior is driven by config.yaml.
+Rule: All permission and validation rules must be enforced server-side in the backend. Frontend enforcement is a convenience only.
+Rule: No placeholder logic, stub functions, or TODO comments in final output. All 9 consensus adapters must be fully implemented.
+Rule: All error messages must be specific, naming the relevant config field, node role, or chain error returned.
+Rule: The speed slider controls animation rendering speed only — it must never throttle or affect the actual chain.
+Rule: All state mutations must go through defined update functions triggered by WebSocket events — no scattered inline state changes.

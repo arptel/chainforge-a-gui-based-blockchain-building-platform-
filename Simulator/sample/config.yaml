@@ -1,0 +1,21 @@
+# ChainForge Network Simulator - Sample Configuration
+# 
+# This is a valid ChainForge project configuration that can be loaded
+# by the simulator. All required fields must be present.
+# Unknown fields are ignored (forward compatibility).
+
+network_type: permissioned
+governance: consortium
+consensus: pbft
+node_roles: [validator, full, light]
+sync_mode: full
+max_nodes: 20
+block_time_ms: 3000
+modules: [token, governance]
+api_endpoint: http://localhost:8545
+require_auth: true
+
+# Optional custom fields for your project
+# name: "My ChainForge Network"
+# description: "Demo network for testing PBFT consensus"
+# version: "1.0"
