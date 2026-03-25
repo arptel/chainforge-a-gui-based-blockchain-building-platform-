@@ -1,0 +1,57 @@
+# ChainForge Simulator — How to Run
+
+Follow these steps to set up and run the ChainForge Network Simulator.
+
+## 1. Prerequisites
+Ensure you have Python 3.10+ installed.
+
+1. Open a terminal in the `Simulator/backend` folder:
+   ```powershell
+   cd "c:\Users\ARTH PATEL\OneDrive\Desktop\ARTH\Sem-6\Blockchain\Simulator\backend"
+   ```
+2. Install the required dependencies:
+   ```powershell
+   python -m pip install -r requirements.txt
+   ```
+
+---
+
+## 2. Integrating Platform Updates (ZIP)
+When you build a blockchain on the main ChainForge platform and download a `.zip` file:
+
+1. **Locate the ZIP**: Find your downloaded `.zip` file from the platform.
+2. **Extract Contents**: Extract the contents of the zip (specifically the node source files) directly into:
+   `c:\Users\ARTH PATEL\OneDrive\Desktop\ARTH\Sem-6\Blockchain\Simulator\backend\`
+3. **Overwrite**: If prompted, choose to **Overwrite** existing files. This ensures the simulator uses your latest blockchain logic.
+
+---
+
+## 3. Running the Simulator
+
+### Step A: Start the Backend
+1. Open a terminal in `Simulator/backend`.
+2. Run the server with the sample configuration:
+   ```powershell
+   python main.py ..\sample\config_none.yaml
+   ```
+   *The server will start on http://localhost:8000.*
+
+### Step B: Open the Dashboard
+1. Using your file explorer, navigate to:
+   `c:\Users\ARTH PATEL\OneDrive\Desktop\ARTH\Sem-6\Blockchain\Simulator\frontend\`
+2. Double-click **`index.html`** to open the simulator dashboard in your web browser.
+
+---
+
+## 4. Using the Simulator
+Once the dashboard is open:
+1. **Load Project**: Click "Load Project" and confirm the config path.
+2. **Add Nodes**: Use the "Add Node" button to spawn validator or full nodes.
+3. **Submit Transactions**: Once nodes are running, you can submit transactions and watch them get committed to blocks in real-time.
+4. **Metrics**: Monitor the live TPS and block production in the metrics panel.
+
+---
+
+## Troubleshooting
+- **Port Conflict**: If port 8000 is in use, set a different port: `$env:PORT=8001; python main.py ...`
+- **Missing Module**: If you see "No module named X", re-run the `pip install` command from Step 1.

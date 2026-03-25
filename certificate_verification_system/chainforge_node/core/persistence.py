@@ -43,6 +43,21 @@ class Persistence:
                     data TEXT NOT NULL
                 )
             """)
+            
+            # Clean up duplicate blocks from legacy databases
+            conn.execute("""
+                DELETE FROM blocks 
+                WHERE rowid NOT IN (
+                    SELECT MIN(rowid) 
+                    FROM blocks 
+                    GROUP BY idx
+                )
+            """)
+            
+            # Enforce uniqueness if idx isn't already primary key in legacy schema
+            conn.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_unique ON blocks(idx)
+            """)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS state (
                     key   TEXT PRIMARY KEY,
@@ -78,20 +93,25 @@ class Persistence:
         logger.debug(f"[DB] Bulk-saved {len(blocks)} blocks.")
 
     def load_all_blocks(self) -> list:
-        """Return all Block objects ordered by index."""
+        """Return all Block objects ordered by index (ignores duplicates based on idx)."""
         from core.block import Block
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT data FROM blocks ORDER BY idx ASC"
             ).fetchall()
-        blocks = []
+        
+        block_map = {}
         for row in rows:
             try:
                 data = json.loads(row["data"])
-                blocks.append(Block.from_dict(data))
+                block = Block.from_dict(data)
+                if block.index not in block_map:
+                    block_map[block.index] = block
             except Exception as e:
                 logger.error(f"[DB] Failed to deserialize block: {e}")
-        return blocks
+                
+        # Return sorted by index strictly
+        return [block_map[idx] for idx in sorted(block_map.keys())]
 
     def load_last_block(self) -> Optional[Any]:
         """Return the Block with the highest index, or None."""

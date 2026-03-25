@@ -46,7 +46,7 @@ def run(chain: Blockchain, port: int):
             try:
                 while True:
                     data = await websocket.receive_text()
-                    response = network_instance._handle_incoming_message(data, sender_ws=websocket)
+                    response = await network_instance._handle_incoming_message(data, websocket)
                     if response:
                         await websocket.send_text(response)
             except Exception:

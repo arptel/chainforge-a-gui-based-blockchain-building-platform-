@@ -20,7 +20,11 @@ def main():
     parser.add_argument("--db-path", type=str, default=None, help="Path to SQLite database for persisting blocks and state")
     args = parser.parse_args()
 
-    print(f"Starting Blockchain Node on port {args.port}...")
+    # Automatically persist data to uniquely named files by port if not explicitly given
+    if args.db_path is None:
+        args.db_path = f"../data/node_{args.api_port}.sqlite"
+
+    print(f"Starting Blockchain Node on port {args.port}... Using DB: {args.db_path}")
     
     # Load Config
     config = {

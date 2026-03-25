@@ -100,37 +100,8 @@ class NoneAdapter(IChainAdapter):
             raise RuntimeError(f"Cannot connect to node {target_node_id} at port {target.port}: {e}")
 
     async def get_blocks(self, since: int = 0) -> List[Block]:
-        """Retrieve blocks from the chain."""
-        if not self.nodes:
-            return self.blocks
-
-        # Query the first available node
-        target = next(iter(self.nodes.values()))
-        url = f"http://127.0.0.1:{target.port}/get_blocks"
-
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    url,
-                    content=f"since={since}",
-                    timeout=10.0,
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    blocks = []
-                    for b in data.get("blocks", []):
-                        blocks.append(Block(
-                            block_number=b["blockNumber"],
-                            block_hash=b["blockHash"],
-                            proposer=b["proposer"],
-                            transactions=[],
-                            timestamp=b["timestamp"],
-                            tx_count=b.get("txCount", 0),
-                        ))
-                    return blocks
-                return self.blocks
-        except Exception:
-            return self.blocks
+        """Retrieve blocks from the chain (uses locally tracked blocks from events)."""
+        return [b for b in self.blocks if b.block_number >= since]
 
     async def get_consensus_state(self) -> ConsensusState:
         """Return state: no consensus mechanism active."""

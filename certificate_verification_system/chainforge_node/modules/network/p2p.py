@@ -81,11 +81,12 @@ class P2PNetwork(NetworkInterface):
                     if running_loop.is_running():
                         # We're inside an async context (e.g. uvicorn handler): schedule as a task
                         asyncio.ensure_future(_send(ws, msg_str), loop=loop)
-                    else:
+                    elif loop is not None:
                         asyncio.run_coroutine_threadsafe(_send(ws, msg_str), loop)
                 except RuntimeError:
                     # No event loop in this thread — use threadsafe dispatch to the target loop
-                    asyncio.run_coroutine_threadsafe(_send(ws, msg_str), loop)
+                    if loop is not None:
+                        asyncio.run_coroutine_threadsafe(_send(ws, msg_str), loop)
                     
             except Exception as e:
                 print(f"[P2P] Failed to schedule broadcast to peer: {e}")
@@ -173,7 +174,7 @@ class P2PNetwork(NetworkInterface):
                     while True:
                         try:
                             message = await ws.recv()
-                            response = self._handle_incoming_message(message)
+                            response = await self._handle_incoming_message(message)
                             if response:  # e.g. SYNC_RESPONSE for a SYNC_REQUEST
                                 await ws.send(response)
                         except websockets.exceptions.ConnectionClosed:
@@ -251,6 +252,9 @@ class P2PNetwork(NetworkInterface):
                 success = self.node_chain.add_block(block)
                 if success:
                     print(f"[P2P] Successfully appended block {block.index} from peer network!")
+                    # Gossip protocol: Re-broadcast the new block to all other peers so the network stays synced
+                    self.broadcast_block(block)
+                    
                     if self.node_chain.role in ["full", "miner"]:
                         for b_tx in block.transactions:
                             if b_tx in self.node_chain.pending_transactions:

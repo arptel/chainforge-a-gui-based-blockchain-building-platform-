@@ -231,7 +231,8 @@ export class SPVLightClient {
             return {
                 isValid: false,
                 status: "Revoked",
-                message: "This certificate was permanently revoked by the issuer on the blockchain."
+                message: "This certificate was permanently revoked by the issuer on the blockchain.",
+                data: proofData.tx.args // Send data so UI can overlay the REVOKED stamp
             };
         }
 
