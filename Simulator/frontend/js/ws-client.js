@@ -14,9 +14,11 @@ class WebSocketClient {
         this.dispatcher = null; // EventDispatcher reference
         this.isConnected = false;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 10;
-        this.reconnectDelay = 1000; // ms base delay
+        this.maxReconnectAttempts = 15;
+        this.reconnectDelay = 500; // ms base delay (faster initial retry)
+        this.maxDelay = 5000; // cap at 5 seconds
         this.messageBuffer = [];
+        this.onStatusChange = null; // callback: (status) => {}
     }
 
     /**
@@ -38,6 +40,7 @@ class WebSocketClient {
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
                 console.log('[WS] Connected to', this.wsUrl);
+                if (this.onStatusChange) this.onStatusChange('connected');
 
                 // Drain any buffered messages
                 while (this.messageBuffer.length > 0) {
@@ -103,6 +106,7 @@ class WebSocketClient {
     _handleClose() {
         this.isConnected = false;
         console.log('[WS] Connection closed');
+        if (this.onStatusChange) this.onStatusChange('disconnected');
         this._attemptReconnect();
     }
 
@@ -123,8 +127,9 @@ class WebSocketClient {
         }
 
         this.reconnectAttempts++;
-        const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+        const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), this.maxDelay);
         console.log(`[WS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        if (this.onStatusChange) this.onStatusChange('reconnecting');
 
         setTimeout(() => {
             this.connect();

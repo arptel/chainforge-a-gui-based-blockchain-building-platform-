@@ -15,6 +15,7 @@ export default function CollegeDashboard() {
     const [copyId, setCopyId] = useState(null);
 
     const [recentCerts, setRecentCerts] = useState([]);
+    const [balance, setBalance] = useState(0);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -36,8 +37,13 @@ export default function CollegeDashboard() {
         try {
             const history = await getHistory();
             setRecentCerts(history);
+            
+            // Fetch balance alongside history
+            const { getBalance } = await import('../api');
+            const balRes = await getBalance();
+            setBalance(balRes.balance || 0);
         } catch (err) {
-            console.error("Failed to fetch history:", err);
+            console.error("Failed to fetch history/balance:", err);
         }
     };
 
@@ -106,11 +112,42 @@ export default function CollegeDashboard() {
                 </div>
                 <button 
                     onClick={handleLogout} 
-                    className="group flex items-center gap-3 px-8 py-3.5 rounded-xl bg-white border-2 border-slate-200 hover:border-slate-900 transition-all text-sm font-black text-slate-950 shadow-sm active:scale-95"
+                    className="group flex items-center gap-3 px-8 py-3.5 rounded-xl bg-white border-2 border-slate-200 hover:border-red-600 transition-all text-sm font-black text-slate-950 hover:text-red-600 shadow-sm active:scale-95"
                 >
-                    <LogOut className="w-4 h-4 text-slate-400 group-hover:text-slate-950" /> 
+                    <LogOut className="w-4 h-4 text-slate-400 group-hover:text-red-600" /> 
                     Logout
                 </button>
+            </div>
+
+            {/* Quick Stats Strip */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+                {/* Balance Card */}
+                <div className="p-6 rounded-2xl bg-white border-2 border-slate-200 flex items-center gap-5 shadow-sm">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+                        <span className="text-xl">🪙</span>
+                    </div>
+                    <div>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-1">Current Balance</p>
+                        <div className="flex items-baseline gap-2">
+                           <span className="text-2xl font-black text-emerald-600 tracking-tight">{balance.toFixed(1)}</span>
+                           <span className="text-sm font-bold text-slate-400">CF</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Total Issued Card */}
+                <div className="p-6 rounded-2xl bg-white border-2 border-slate-200 flex items-center gap-5 shadow-sm">
+                    <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center">
+                        <FileSignature className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-1">Total Issued</p>
+                        <div className="flex items-baseline gap-2">
+                           <span className="text-2xl font-black text-indigo-600 tracking-tight">{recentCerts.length}</span>
+                           <span className="text-sm font-bold text-slate-400">Certs</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">

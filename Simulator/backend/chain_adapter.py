@@ -103,7 +103,7 @@ class IChainAdapter(ABC):
         pass
 
     @abstractmethod
-    async def submit_transaction(self, tx: Transaction) -> str:
+    async def submit_transaction(self, tx: Transaction, from_node_id: str = None) -> str:
         """
         Submit a transaction to the blockchain.
         

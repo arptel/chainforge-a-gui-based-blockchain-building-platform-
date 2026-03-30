@@ -30,7 +30,7 @@ class TendermintAdapter(IChainAdapter):
         # TODO: Implement node termination logic
         pass
 
-    async def submit_transaction(self, tx: Transaction) -> str:
+    async def submit_transaction(self, tx: Transaction, from_node_id: str = None) -> str:
         """
         Submit transaction to mempool.
         Will be included by current proposer.

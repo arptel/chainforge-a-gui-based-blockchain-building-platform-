@@ -8,6 +8,9 @@ import time
 
 api_router = APIRouter(prefix="/api", tags=["certificate"])
 
+class VerifyRequest(BaseModel):
+    cert_id: str
+
 class IssueRequest(BaseModel):
     student_name: str
     degree: str
@@ -189,6 +192,155 @@ async def get_certificate_history(current_user: dict = Depends(require_issuer)):
         return issued_certs
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
+
+@api_router.get("/balance")
+async def get_balance(current_user: dict = Depends(require_issuer)):
+    """
+    Returns the current on-chain balance of the authenticated college.
+    """
+    try:
+        node_url = current_user.get("node_url")
+        if not node_url:
+            return {"balance": 0}
+            
+        resp = requests.get(f"{node_url}/state")
+        resp.raise_for_status()
+        state = resp.json()
+        
+        # Balance is stored in state by address. 
+        # Default to 100 since nodes initialize there on first interaction.
+        balance = state.get(current_user["address"], 100.0)
+        return {"balance": balance}
+    except Exception as e:
+        # If node is offline, we fallback to a safe 0 or error
+        return {"balance": 0, "error": str(e)}
+
+@api_router.get("/sync-status")
+async def get_sync_status(current_user: dict = Depends(require_issuer)):
+    """
+    Returns whether the current user's node is synced with the network.
+    Frontend polls this after registration/login to show a sync gate.
+    """
+    from node_manager import get_sync_status
+    node_url = current_user.get("node_url")
+    if not node_url:
+        return {"synced": False, "local_blocks": 0, "network_blocks": 0, "node_online": False}
+    return get_sync_status(node_url)
+
+
+@api_router.post("/verify")
+async def verify_certificate_consensus(req: VerifyRequest):
+    """
+    Multi-node consensus verification.
+    Queries ALL registered nodes for the certificate and tallies votes.
+    Returns a consensus result with vote breakdown.
+    """
+    import sqlite3
+    from auth import DB_PATH
+    
+    # Get all registered node URLs
+    node_urls = []
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('SELECT username, node_url FROM users WHERE node_url IS NOT NULL')
+        for row in cursor.fetchall():
+            if row[1]:
+                node_urls.append({"name": row[0], "url": row[1]})
+        conn.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to query nodes: {e}")
+    
+    if not node_urls:
+        raise HTTPException(status_code=503, detail="No nodes available in the network")
+    
+    # Query each node's /state endpoint for the certificate
+    votes = []
+    cert_data = None
+    
+    for node in node_urls:
+        try:
+            resp = requests.get(f"{node['url']}/state", timeout=5)
+            if resp.status_code == 200:
+                state = resp.json()
+                cert_key = f"cert_{req.cert_id}"
+                if cert_key in state and isinstance(state[cert_key], dict):
+                    cert = state[cert_key]
+                    is_revoked = cert.get("is_revoked", False)
+                    votes.append({
+                        "node": node["name"],
+                        "url": node["url"],
+                        "found": True,
+                        "is_revoked": is_revoked,
+                        "status": "online"
+                    })
+                    if cert_data is None:
+                        cert_data = cert
+                else:
+                    votes.append({
+                        "node": node["name"],
+                        "url": node["url"],
+                        "found": False,
+                        "is_revoked": False,
+                        "status": "online"
+                    })
+            else:
+                votes.append({
+                    "node": node["name"],
+                    "url": node["url"],
+                    "found": False,
+                    "is_revoked": False,
+                    "status": "error"
+                })
+        except Exception:
+            votes.append({
+                "node": node["name"],
+                "url": node["url"],
+                "found": False,
+                "is_revoked": False,
+                "status": "offline"
+            })
+    
+    # Tally results
+    total_nodes = len(votes)
+    online_nodes = sum(1 for v in votes if v["status"] == "online")
+    found_count = sum(1 for v in votes if v["found"])
+    revoked_count = sum(1 for v in votes if v["found"] and v["is_revoked"])
+    valid_count = found_count - revoked_count
+    
+    # Consensus logic: majority of online nodes must agree
+    if online_nodes == 0:
+        consensus = "NO_NODES"
+        message = "No nodes are currently online to verify."
+    elif found_count == 0:
+        consensus = "NOT_FOUND"
+        message = "Certificate not found on any node."
+    elif revoked_count > 0 and revoked_count == found_count:
+        consensus = "REVOKED"
+        message = f"Certificate revoked. Confirmed by {revoked_count}/{online_nodes} nodes."
+    elif valid_count > online_nodes / 2:
+        consensus = "VALID"
+        message = f"Certificate is valid. Confirmed by {valid_count}/{online_nodes} nodes."
+    elif found_count < online_nodes:
+        consensus = "PARTIAL"
+        message = f"Certificate found on {found_count}/{online_nodes} nodes. Sync may be in progress."
+    else:
+        consensus = "VALID"
+        message = f"Certificate verified by {valid_count}/{online_nodes} nodes."
+    
+    return {
+        "consensus": consensus,
+        "message": message,
+        "cert_data": cert_data,
+        "votes": votes,
+        "total_nodes": total_nodes,
+        "online_nodes": online_nodes,
+        "found_count": found_count,
+        "valid_count": valid_count,
+        "revoked_count": revoked_count
+    }
+
+
 @api_router.get("/browse-folder")
 async def browse_folder():
     """

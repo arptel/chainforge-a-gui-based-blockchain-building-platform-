@@ -133,24 +133,34 @@ class P2PNetwork(NetworkInterface):
         payload = {"type": "NEW_BLOCK", "data": block.to_dict()}
         self._broadcast_ws(payload)
 
+    @staticmethod
+    def _normalize_uri(peer_address: str) -> str:
+        """Normalize any peer address to a canonical ws://host:port/ws form."""
+        uri = peer_address.strip()
+        if uri.startswith("http"):
+            uri = uri.replace("http", "ws")
+        if not uri.startswith("ws"):
+            uri = f"ws://{uri}"
+        if not uri.endswith("/ws"):
+            uri = f"{uri}/ws"
+        return uri
+
     def connect_to_peer(self, peer_address: str):
         """Dial OUT to a peer and establish a persistent websocket."""
-        if peer_address and peer_address not in self.known_peers:
-            self.known_peers.add(peer_address)
-            
-            # Ensure it's a websocket URI
-            uri = peer_address
-            if uri.startswith("http"):
-                uri = uri.replace("http", "ws")
-            if not uri.startswith("ws"):
-                uri = f"ws://{uri}"
-            if not uri.endswith("/ws"):
-                uri = f"{uri}/ws"
+        if not peer_address:
+            return
+        # Normalize BEFORE the dedup check to prevent duplicate connections
+        # (e.g. "127.0.0.1:8080" vs "ws://127.0.0.1:8080/ws")
+        uri = self._normalize_uri(peer_address)
+        
+        if uri in self.known_peers:
+            return
+        self.known_peers.add(uri)
                 
-            print(f"[P2P] Dialing peer: {uri} ...")
+        print(f"[P2P] Dialing peer: {uri} ...")
             
-            # Start a background thread to maintain this outbound connection
-            threading.Thread(target=self._maintain_outbound_connection, args=(uri,), daemon=True).start()
+        # Start a background thread to maintain this outbound connection
+        threading.Thread(target=self._maintain_outbound_connection, args=(uri,), daemon=True).start()
 
     def _maintain_outbound_connection(self, uri: str):
         """Runs in a background thread to dial out and listen to a peer asynchronously."""
@@ -165,8 +175,9 @@ class P2PNetwork(NetworkInterface):
                     hello_msg = json.dumps({"type": "PEER_DISCOVERY", "data": self.my_uri})
                     await ws.send(hello_msg)
                     
-                    # Auto-trigger blockchain sync now that we have a peer!
-                    if self.sync_module and hasattr(self.sync_module, 'sync_chain'):
+                    # Auto-trigger blockchain sync only once (first peer connection)
+                    if self.sync_module and hasattr(self.sync_module, 'sync_chain') and not getattr(self, '_initial_sync_done', False):
+                        self._initial_sync_done = True
                         print(f"[P2P] Scheduling initial sync via newly connected peer {uri}...")
                         loop.call_later(2.0, self.sync_module.sync_chain)
                     
@@ -238,6 +249,18 @@ class P2PNetwork(NetworkInterface):
                 from core.block import Block
                 block = Block.from_dict(msg_data)
                 
+                # De-duplicate: skip blocks we've already seen recently
+                if not hasattr(self, '_recently_seen_blocks'):
+                    self._recently_seen_blocks = set()
+                
+                if block.hash in self._recently_seen_blocks:
+                    return None  # Already processed this block
+                self._recently_seen_blocks.add(block.hash)
+                
+                # Keep the set small — only track last 50 blocks
+                if len(self._recently_seen_blocks) > 50:
+                    self._recently_seen_blocks = set(list(self._recently_seen_blocks)[-25:])
+                
                 # Gap detection logic
                 if block.index > self.node_chain.last_block.index + 1:
                     print(f"[P2P] Detected gap! We are at {self.node_chain.last_block.index}, received {block.index}.")
@@ -252,8 +275,8 @@ class P2PNetwork(NetworkInterface):
                 success = self.node_chain.add_block(block)
                 if success:
                     print(f"[P2P] Successfully appended block {block.index} from peer network!")
-                    # Gossip protocol: Re-broadcast the new block to all other peers so the network stays synced
-                    self.broadcast_block(block)
+                    # NOTE: Do NOT re-broadcast. The miner already broadcast to all peers.
+                    # Re-broadcasting in a small mesh creates exponential echo storms.
                     
                     if self.node_chain.role in ["full", "miner"]:
                         for b_tx in block.transactions:

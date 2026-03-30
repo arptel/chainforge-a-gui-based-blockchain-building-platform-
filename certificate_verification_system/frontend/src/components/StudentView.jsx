@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getIssuers } from '../api';
+import { getIssuers, verifyCertificate as verifyConsensus } from '../api';
 import { SPVLightClient } from '../spv/LightClient';
-import { ShieldCheck, Calendar, Share2, Download, CheckCircle2, QrCode, Building, Award, ShieldAlert, Cpu } from 'lucide-react';
+import { ShieldCheck, Calendar, Share2, Download, CheckCircle2, QrCode, Building, Award, ShieldAlert, Cpu, Server, Wifi, WifiOff } from 'lucide-react';
 
 // Initial fallback nodes, will be updated dynamically from the backend
 const DEFAULT_NODES = ["http://127.0.0.1:8080", "http://127.0.0.1:8081"];
@@ -17,6 +17,8 @@ export default function StudentView() {
     const [issuersMap, setIssuersMap] = useState({});
     const [spvNode, setSpvNode] = useState(new SPVLightClient(DEFAULT_NODES));
     const [copied, setCopied] = useState(false);
+    const [consensusData, setConsensusData] = useState(null);
+    const [consensusLoading, setConsensusLoading] = useState(true);
 
     useEffect(() => {
         const verifyTrustlessly = async () => {
@@ -61,7 +63,23 @@ export default function StudentView() {
                 setLoadingStep('');
             }
         };
+        
+        // Run consensus verification in parallel
+        const runConsensus = async () => {
+            try {
+                setConsensusLoading(true);
+                const result = await verifyConsensus(certId);
+                setConsensusData(result);
+            } catch (err) {
+                console.error('[Consensus] Verification error:', err);
+                setConsensusData(null);
+            } finally {
+                setConsensusLoading(false);
+            }
+        };
+        
         verifyTrustlessly();
+        runConsensus();
     }, [certId]);
 
     const handleShare = () => {
@@ -218,6 +236,106 @@ export default function StudentView() {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Network Consensus Section */}
+            <div className="p-8 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-xl shadow-slate-100">
+                <div className="flex items-center gap-4 mb-8">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center shadow-lg">
+                        <Server className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-black text-slate-950 tracking-tight">Network Consensus</h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-0.5">Multi-node verification result</p>
+                    </div>
+                </div>
+
+                {consensusLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <div className="flex items-center gap-4">
+                            <div className="w-6 h-6 border-3 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
+                            <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Querying nodes...</span>
+                        </div>
+                    </div>
+                ) : consensusData ? (
+                    <div className="space-y-6">
+                        {/* Consensus Status Banner */}
+                        <div className={`p-5 rounded-2xl border-2 flex items-center gap-4 ${
+                            consensusData.consensus === 'VALID' ? 'bg-emerald-50 border-emerald-200' :
+                            consensusData.consensus === 'REVOKED' ? 'bg-red-50 border-red-200' :
+                            'bg-amber-50 border-amber-200'
+                        }`}>
+                            {consensusData.consensus === 'VALID' ? 
+                                <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0" /> :
+                            consensusData.consensus === 'REVOKED' ?
+                                <ShieldAlert className="w-6 h-6 text-red-600 flex-shrink-0" /> :
+                                <Wifi className="w-6 h-6 text-amber-600 flex-shrink-0" />
+                            }
+                            <div>
+                                <p className={`text-sm font-black tracking-tight ${
+                                    consensusData.consensus === 'VALID' ? 'text-emerald-800' :
+                                    consensusData.consensus === 'REVOKED' ? 'text-red-800' :
+                                    'text-amber-800'
+                                }`}>{consensusData.message}</p>
+                            </div>
+                        </div>
+
+                        {/* Vote Tally Bar */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                <span>Vote Tally</span>
+                                <span>{consensusData.found_count}/{consensusData.online_nodes} nodes confirmed</span>
+                            </div>
+                            <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden flex">
+                                {consensusData.valid_count > 0 && (
+                                    <div 
+                                        className="bg-emerald-500 h-4 transition-all duration-700"
+                                        style={{ width: `${(consensusData.valid_count / consensusData.total_nodes) * 100}%` }}
+                                    />
+                                )}
+                                {consensusData.revoked_count > 0 && (
+                                    <div 
+                                        className="bg-red-500 h-4 transition-all duration-700"
+                                        style={{ width: `${(consensusData.revoked_count / consensusData.total_nodes) * 100}%` }}
+                                    />
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Per-Node Votes */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {consensusData.votes.map((vote, i) => (
+                                <div key={i} className={`flex items-center gap-3 p-4 rounded-xl border ${
+                                    vote.status === 'offline' ? 'bg-slate-50 border-slate-200' :
+                                    vote.found ? (vote.is_revoked ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100') :
+                                    'bg-amber-50 border-amber-100'
+                                }`}>
+                                    {vote.status === 'offline' ? 
+                                        <WifiOff className="w-4 h-4 text-slate-400 flex-shrink-0" /> :
+                                    vote.found ? (vote.is_revoked ? 
+                                        <ShieldAlert className="w-4 h-4 text-red-500 flex-shrink-0" /> :
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                                    ) : <Wifi className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                                    }
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-black text-slate-900 truncate">
+                                            {vote.node.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                        </p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                            {vote.status === 'offline' ? 'Offline' :
+                                             vote.found ? (vote.is_revoked ? 'Revoked' : 'Valid') :
+                                             'Not Found'}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center py-8">
+                        <p className="text-sm text-slate-400 font-bold">Could not reach network for consensus verification.</p>
+                    </div>
+                )}
             </div>
 
             {/* Footer Disclaimer */}

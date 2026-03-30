@@ -47,8 +47,23 @@ export const getHistory = async () => {
     return response.data;
 };
 
+export const getBalance = async () => {
+    const response = await api.get('/api/balance');
+    return response.data;
+};
+
 export const browseFolder = async () => {
     const response = await api.get('/api/browse-folder');
+    return response.data;
+};
+
+export const getSyncStatus = async () => {
+    const response = await api.get('/api/sync-status');
+    return response.data;
+};
+
+export const verifyCertificate = async (certId) => {
+    const response = await api.post('/api/verify', { cert_id: certId });
     return response.data;
 };
 

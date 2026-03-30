@@ -16,13 +16,30 @@ Ensure you have Python 3.10+ installed.
 
 ---
 
-## 2. Integrating Platform Updates (ZIP)
+## 2. Integrating Platform Downloads (ZIP)
 When you build a blockchain on the main ChainForge platform and download a `.zip` file:
 
-1. **Locate the ZIP**: Find your downloaded `.zip` file from the platform.
-2. **Extract Contents**: Extract the contents of the zip (specifically the node source files) directly into:
-   `c:\Users\ARTH PATEL\OneDrive\Desktop\ARTH\Sem-6\Blockchain\Simulator\backend\`
-3. **Overwrite**: If prompted, choose to **Overwrite** existing files. This ensures the simulator uses your latest blockchain logic.
+1. **Locate the ZIP**: Find your downloaded `.zip` file (e.g., `chain_19.zip`).
+2. **Extract Contents**: Extract the contents into this specific folder:
+   `Simulator\backend\chain_node\`
+   
+   If using Windows Explorer:
+   - Navigate to `Simulator\backend\`
+   - Create a folder named `chain_node` (if it doesn't exist)
+   - Extract the ZIP contents directly into `chain_node\`
+   
+   If using PowerShell:
+   ```powershell
+   mkdir -Force chain_node
+   tar -xf "path\to\your_downloaded.zip" -C chain_node
+   ```
+3. **Install Node Dependencies**:
+   ```powershell
+   python -m pip install -r chain_node\requirements.txt
+   ```
+
+> The bridge script will **automatically detect** the `chain_node/` folder
+> and use the real blockchain code. No code changes needed — ever.
 
 ---
 
@@ -34,24 +51,34 @@ When you build a blockchain on the main ChainForge platform and download a `.zip
    ```powershell
    python main.py ..\sample\config_none.yaml
    ```
-   *The server will start on http://localhost:8000.*
+3. **⚠️ IMPORTANT**: Look at the terminal output. It will print a URL like:
+   `Open the dashboard at: http://localhost:8000/static/index.html`
 
 ### Step B: Open the Dashboard
-1. Using your file explorer, navigate to:
-   `c:\Users\ARTH PATEL\OneDrive\Desktop\ARTH\Sem-6\Blockchain\Simulator\frontend\`
-2. Double-click **`index.html`** to open the simulator dashboard in your web browser.
+1. **DO NOT** double-click `index.html` (this will trigger a browser security guard).
+2. **Copy the URL** from Step A:3 and paste it into your browser's address bar.
+   (Default is usually `http://localhost:8000/static/index.html`)
 
 ---
 
 ## 4. Using the Simulator
 Once the dashboard is open:
-1. **Load Project**: Click "Load Project" and confirm the config path.
-2. **Add Nodes**: Use the "Add Node" button to spawn validator or full nodes.
-3. **Submit Transactions**: Once nodes are running, you can submit transactions and watch them get committed to blocks in real-time.
-4. **Metrics**: Monitor the live TPS and block production in the metrics panel.
+1. **Load Project**: Click "Load Project".
+   - **What to enter**: Type the path to your config file relative to the `backend/` folder.
+   - **Example**: `../sample/config_none.yaml`
+   - **Note**: If you already specified the config when starting the backend in PowerShell, the project should auto-load!
+2. **Add Nodes**: Click "+ Add Node" (top right of center panel).
+   - Select a node type (Validator, Full Node, etc.).
+   - The simulator will spawn the real blockchain node process.
+3. **Submit Transactions**: 
+   - Once a node is running, click its card in the topology.
+   - Fill in the "Send Transaction" form (Recipient, Amount, etc.).
+   - Click "Send" and watch the blockchain commit the block.
+4. **Metrics**: Monitor real-time TPS and Block production at the bottom bar.
 
 ---
 
 ## Troubleshooting
-- **Port Conflict**: If port 8000 is in use, set a different port: `$env:PORT=8001; python main.py ...`
-- **Missing Module**: If you see "No module named X", re-run the `pip install` command from Step 1.
+- **Port Conflict**: If port 8000 is in use: `$env:PORT=8001; python main.py ...`
+- **Missing Module**: Re-run the `pip install` commands from Steps 1 and 2.3.
+- **No chain_node folder**: The simulator will run in simulation mode (demo data).

@@ -37,6 +37,58 @@ def run(chain: Blockchain, port: int):
         chain.add_transaction(tx)
         return {"status": "received"}
 
+    # --- Visualizer WebSocket Endpoint ---
+    visualizer_clients = set()
+
+    @app.websocket("/visualize")
+    async def websocket_visualizer(websocket: WebSocket):
+        await websocket.accept()
+        visualizer_clients.add(websocket)
+        
+        # 1. Send initial state
+        initial_event = {
+            "type": "NODE_JOINED",
+            "timestamp": time.time(),
+            "payload": {
+                "nodeId": chain.node_id,
+                "role": chain.role,
+                "address": "Local Node",
+                "balance": 100.0 # Default starting
+            }
+        }
+        await websocket.send_json(initial_event)
+        
+        try:
+            while True:
+                # Keep connection alive
+                await websocket.receive_text()
+        except Exception:
+            pass
+        finally:
+            visualizer_clients.remove(websocket)
+
+    def broadcast_block(event_data):
+        import asyncio
+        import json
+        
+        message = {
+            "type": "BLOCK_COMMITTED",
+            "timestamp": time.time(),
+            "payload": event_data
+        }
+        
+        # Run async broadcast from sync callback
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                for client in list(visualizer_clients):
+                    loop.create_task(client.send_json(message))
+        except Exception:
+            pass
+
+    # Register the callback with the chain
+    chain.on_block_committed.append(broadcast_block)
+
     # --- P2P WebSocket Endpoint ---
     @app.websocket("/ws")
     async def websocket_peer_endpoint(websocket: WebSocket):

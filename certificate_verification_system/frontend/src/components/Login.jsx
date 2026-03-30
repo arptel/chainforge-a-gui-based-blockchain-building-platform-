@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../api';
-import { KeyRound, Lock, User, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { login, getSyncStatus } from '../api';
+import { KeyRound, Lock, User, Eye, EyeOff, ShieldCheck, RefreshCw } from 'lucide-react';
 
 export default function Login() {
     const [username, setUsername] = useState('college_a');
@@ -9,6 +9,8 @@ export default function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncProgress, setSyncProgress] = useState({ local_blocks: 0, network_blocks: 0 });
     const navigate = useNavigate();
 
     const handleLogin = async (e) => {
@@ -19,13 +21,77 @@ export default function Login() {
         try {
             const data = await login(username, password);
             localStorage.setItem('token', data.access_token);
-            navigate('/college');
+            
+            // Start sync gate — poll until node is synced
+            setSyncing(true);
+            setLoading(false);
+            
+            const pollSync = async () => {
+                let attempts = 0;
+                const maxAttempts = 20; // 40 seconds max
+                while (attempts < maxAttempts) {
+                    try {
+                        const status = await getSyncStatus();
+                        setSyncProgress({ 
+                            local_blocks: status.local_blocks || 0, 
+                            network_blocks: status.network_blocks || 0 
+                        });
+                        if (status.synced && status.node_online) {
+                            setSyncing(false);
+                            navigate('/college');
+                            return;
+                        }
+                    } catch (e) {
+                        // Node may not be ready yet, keep polling
+                    }
+                    attempts++;
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+                // Timeout — navigate anyway
+                setSyncing(false);
+                navigate('/college');
+            };
+            pollSync();
         } catch (err) {
             setError('The credentials provided are incorrect.');
         } finally {
             setLoading(false);
         }
     };
+
+    if (syncing) {
+        return (
+            <div className="min-h-[70vh] flex items-center justify-center p-4">
+                <div className="w-full max-w-md animate-fade-in-up">
+                    <div className="soft-card p-12 shadow-2xl text-center">
+                        <div className="relative w-20 h-20 mx-auto mb-8">
+                            <div className="absolute inset-0 border-4 border-slate-100 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <RefreshCw className="w-8 h-8 text-slate-900 animate-pulse" />
+                            </div>
+                        </div>
+                        <h2 className="text-2xl font-black text-slate-950 mb-3 tracking-tight">Syncing Node</h2>
+                        <p className="text-slate-500 text-sm font-bold mb-8">Ensuring your blockchain node is up to date...</p>
+                        
+                        <div className="w-full bg-slate-100 rounded-full h-3 mb-4 overflow-hidden">
+                            <div 
+                                className="bg-slate-900 h-3 rounded-full transition-all duration-700 ease-out"
+                                style={{ width: syncProgress.network_blocks > 0 
+                                    ? `${Math.min(100, (syncProgress.local_blocks / syncProgress.network_blocks) * 100)}%` 
+                                    : '30%' 
+                                }}
+                            />
+                        </div>
+                        <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            <span>{syncProgress.local_blocks} blocks synced</span>
+                            <span>{syncProgress.network_blocks > 0 ? `${syncProgress.network_blocks} total` : 'Connecting...'}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-[70vh] flex items-center justify-center p-4">

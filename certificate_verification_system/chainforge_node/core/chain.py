@@ -13,7 +13,7 @@ import json
 
 class Blockchain:
     def __init__(self, consensus: ConsensusInterface = None, runtime: VMInterface = None, role: str = "full",
-                 require_signature: bool = True, min_gas_price: int = 0, db_path: str = None):
+                 require_signature: bool = True, min_gas_price: int = 0, db_path: str = None, api_port: int = 8000):
         self.chain: List[Block] = []
         self.consensus = consensus
         self.runtime = runtime
@@ -22,6 +22,8 @@ class Blockchain:
         self.min_gas_price = min_gas_price
         self.state: Dict[str, Any] = {}
         self.mempool = Mempool(min_gas_price=min_gas_price)
+        self.node_id = f"node-{api_port or 'anon'}" # For visualization
+        self.on_block_committed = [] # List of callbacks (event_data)
 
         # Optional SQLite persistence — None means in-memory only
         self.db_path = db_path
@@ -200,6 +202,22 @@ class Blockchain:
         if self.persistence:
             self.persistence.save_block(block)
             self.persistence.save_state(self.state)
+
+        # 7. Notify listeners (for visualization)
+        event_data = {
+            "nodeId": self.node_id,
+            "blockHeight": len(self.chain) - 1,
+            "hash": block.hash,
+            "proposerNodeId": block.validator,
+            "txCount": len(block.transactions),
+            "balances": {k: v for k, v in self.state.items() if isinstance(v, (int, float))},
+            "timestamp": time.time()
+        }
+        for cb in self.on_block_committed:
+            try:
+                cb(event_data)
+            except Exception:
+                pass
 
         return True
 

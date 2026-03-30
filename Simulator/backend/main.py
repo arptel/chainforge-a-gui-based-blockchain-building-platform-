@@ -157,6 +157,38 @@ async def load_project(request: Request):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    # ── Merge genesis.json from platform code (if present) ──
+    # When a user extracts a downloaded zip into chain_node/, the genesis.json
+    # contains the REAL consensus, sync, and network config from the platform.
+    # We override the generic YAML defaults with these values.
+    chain_node_dir = os.path.join(os.path.dirname(__file__), "chain_node")
+    genesis_path = os.path.join(chain_node_dir, "config", "genesis.json")
+    if os.path.isfile(genesis_path):
+        try:
+            with open(genesis_path, "r") as gf:
+                genesis = json.load(gf)
+
+            net_type = genesis.get("networkType")
+            if net_type == "public":
+                config.network_type = "public"
+                config.consensus = genesis.get("publicConsensus", config.consensus)
+                config.sync_mode = genesis.get("publicSyncMode", config.sync_mode)
+            elif net_type == "permissioned":
+                config.network_type = "permissioned"
+                p_type = genesis.get("permissionedType", "centralized")
+                config.governance = p_type
+                if p_type == "centralized":
+                    config.consensus = genesis.get("centralizedConsensus", config.consensus)
+                    config.sync_mode = genesis.get("centralizedSync", config.sync_mode)
+                else:  # consortium
+                    config.consensus = genesis.get("consortiumConsensus", config.consensus)
+                    config.sync_mode = genesis.get("consortiumSync", config.sync_mode)
+
+            logger.info(f"Merged genesis.json: consensus={config.consensus}, "
+                        f"sync_mode={config.sync_mode}, network={config.network_type}")
+        except Exception as e:
+            logger.warning(f"Could not read genesis.json, using YAML defaults: {e}")
+
     # Import adapter factory here to avoid circular imports at module level
     from adapters import get_adapter
     adapter = get_adapter(config.consensus)
@@ -170,6 +202,27 @@ async def load_project(request: Request):
     event_bridge.subscribe_to_adapter_events(adapter)
 
     logger.info(f"Project loaded: consensus={config.consensus}, max_nodes={config.max_nodes}")
+
+    return {
+        "status": "loaded",
+        "network_type": config.network_type,
+        "governance": config.governance,
+        "consensus": config.consensus,
+        "node_roles": config.node_roles,
+        "sync_mode": config.sync_mode,
+        "max_nodes": config.max_nodes,
+        "block_time_ms": config.block_time_ms,
+        "modules": config.modules,
+    }
+
+
+@app.get("/project")
+async def get_project_status():
+    """
+    Get the current project status and configuration.
+    """
+    if config is None:
+        return {"status": "not_loaded"}
 
     return {
         "status": "loaded",
@@ -248,6 +301,35 @@ async def add_node(request: Request):
         adapter.nodes[node_process.node_id] = adapter_node
     if hasattr(adapter, 'start_stdout_reader') and node_process.process is not None:
         await adapter.start_stdout_reader(node_process.node_id, node_process.process)
+    elif node_process.process is not None and event_bridge is not None:
+        # Fallback: read stdout directly for adapters that don't have start_stdout_reader
+        import asyncio as _asyncio
+
+        async def _read_stdout(nid, proc, bridge):
+            try:
+                while proc.returncode is None:
+                    line = await proc.stdout.readline()
+                    if not line:
+                        break
+                    text = line.decode(errors="replace").strip()
+                    if text.startswith("EVENT:"):
+                        try:
+                            data = json.loads(text[6:])
+                            evt = ChainEvent(
+                                event_type=data.get("type", "UNKNOWN"),
+                                timestamp=data.get("timestamp", int(time.time() * 1000)),
+                                node_id=data.get("nodeId", nid),
+                                payload=data.get("payload", {}),
+                            )
+                            await bridge.on_chain_event(evt)
+                        except json.JSONDecodeError:
+                            pass
+            except Exception as e:
+                logger.warning(f"Stdout reader for {nid} error: {e}")
+
+        _asyncio.get_event_loop().create_task(
+            _read_stdout(node_process.node_id, node_process.process, event_bridge)
+        )
 
     # Emit NODE_JOINED via event bridge
     if event_bridge:
@@ -262,6 +344,65 @@ async def add_node(request: Request):
             }
         )
         await event_bridge.on_chain_event(event)
+
+        # Emit SYNC_PROGRESS immediately so the frontend shows "syncing"
+        sync_progress_event = ChainEvent(
+            event_type="SYNC_PROGRESS",
+            timestamp=int(time.time() * 1000),
+            node_id=node_process.node_id,
+            payload={
+                "nodeId": node_process.node_id,
+                "currentHeight": 0,
+                "targetHeight": len(event_bridge.event_buffer) if event_bridge else 0,
+            }
+        )
+        await event_bridge.on_chain_event(sync_progress_event)
+
+        # Delay SYNC_COMPLETE by replaying historical blocks
+        import asyncio as _asyncio_sync
+        nid_for_sync = node_process.node_id
+        
+        # Grab historical blocks committed so far
+        historical_blocks = []
+        if event_bridge:
+            historical_blocks = [e for e in event_bridge.event_buffer if e.event_type == "BLOCK_COMMITTED"]
+
+        async def _delayed_sync_complete(nid, bridge, blocks):
+            target_h = len(blocks)
+            if target_h == 0:
+                # No blocks yet, instantly synced
+                pass
+            else:
+                for idx, block_event in enumerate(blocks):
+                    # Half-second delay per block to visually see it catch up
+                    await _asyncio_sync.sleep(0.5)
+                    progress_event = ChainEvent(
+                        event_type="SYNC_PROGRESS",
+                        timestamp=int(time.time() * 1000),
+                        node_id=nid,
+                        payload={
+                            "nodeId": nid,
+                            "currentHeight": block_event.payload.get("blockHeight", idx + 1),
+                            "targetHeight": target_h,
+                            "blockData": block_event.payload
+                        }
+                    )
+                    await bridge.on_chain_event(progress_event)
+                    
+            complete_event = ChainEvent(
+                event_type="SYNC_COMPLETE",
+                timestamp=int(time.time() * 1000),
+                node_id=nid,
+                payload={
+                    "nodeId": nid,
+                    "finalHeight": target_h,
+                }
+            )
+            await bridge.on_chain_event(complete_event)
+
+        _asyncio_sync.get_event_loop().create_task(
+            _delayed_sync_complete(nid_for_sync, event_bridge, historical_blocks)
+        )
 
     return {
         "nodeId": node_process.node_id,
@@ -685,6 +826,34 @@ async def startup_event():
     if config_path:
         try:
             config = config_parser.parse_file(config_path)
+
+            # ── Merge genesis.json (same logic as load_project) ──
+            chain_node_dir = os.path.join(os.path.dirname(__file__), "chain_node")
+            genesis_path = os.path.join(chain_node_dir, "config", "genesis.json")
+            if os.path.isfile(genesis_path):
+                try:
+                    with open(genesis_path, "r") as gf:
+                        genesis = json.load(gf)
+                    net_type = genesis.get("networkType")
+                    if net_type == "public":
+                        config.network_type = "public"
+                        config.consensus = genesis.get("publicConsensus", config.consensus)
+                        config.sync_mode = genesis.get("publicSyncMode", config.sync_mode)
+                    elif net_type == "permissioned":
+                        config.network_type = "permissioned"
+                        p_type = genesis.get("permissionedType", "centralized")
+                        config.governance = p_type
+                        if p_type == "centralized":
+                            config.consensus = genesis.get("centralizedConsensus", config.consensus)
+                            config.sync_mode = genesis.get("centralizedSync", config.sync_mode)
+                        else:  # consortium
+                            config.consensus = genesis.get("consortiumConsensus", config.consensus)
+                            config.sync_mode = genesis.get("consortiumSync", config.sync_mode)
+                    logger.info(f"Startup merged genesis.json: consensus={config.consensus}, "
+                                f"sync_mode={config.sync_mode}, network={config.network_type}")
+                except Exception as e:
+                    logger.warning(f"Could not read genesis.json during startup: {e}")
+
             from adapters import get_adapter
             adapter = get_adapter(config.consensus)
             process_manager = ProcessManager(max_nodes=config.max_nodes)
@@ -698,13 +867,28 @@ async def startup_event():
 
 if __name__ == "__main__":
     import uvicorn
+    import socket
 
-    port = int(os.environ.get("PORT", 8000))
+    preferred_port = int(os.environ.get("PORT", 8000))
     config_path = None
 
     if len(sys.argv) > 1:
         config_path = sys.argv[1]
         os.environ["CHAINFORGE_CONFIG"] = config_path
 
+    # Try preferred port, then fallback to +1, +2
+    port = preferred_port
+    for attempt_port in [preferred_port, preferred_port + 1, preferred_port + 2]:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind(("0.0.0.0", attempt_port))
+            sock.close()
+            port = attempt_port
+            break
+        except OSError:
+            logger.warning(f"Port {attempt_port} is in use, trying next...")
+            continue
+
     logger.info(f"Starting ChainForge Simulator backend on http://0.0.0.0:{port}")
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+    logger.info(f"Open the dashboard at: http://localhost:{port}/static/index.html")
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=False)

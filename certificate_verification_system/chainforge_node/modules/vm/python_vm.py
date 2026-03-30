@@ -60,9 +60,14 @@ class PythonVM(VMInterface):
         gas_fee = gas_price * gas_limit
         validator = tx.get("validator")
 
+        # --- Ensure starting balance of 100 for new addresses ---
+        if sender and sender not in state:
+            state[sender] = 100.0
+            print(f"[PythonVM] Initialized new account {sender} with 100.0 coins")
+
         # --- Deduct gas fee from sender first ---
         if gas_fee > 0:
-            sender_bal = state.get(sender, 0)
+            sender_bal = state.get(sender, 100.0) # Fallback just in case
             if sender_bal < gas_fee:
                 print(f"[PythonVM] Tx rejected: insufficient balance for gas "
                       f"({sender} has {sender_bal}, needs {gas_fee})")
@@ -80,10 +85,10 @@ class PythonVM(VMInterface):
             receiver = tx.get("to")
             amount = tx.get("amount", 0)
 
-            sender_bal = state.get(sender, 0)
+            sender_bal = state.get(sender, 100.0)
             if sender_bal >= amount:
                 state[sender] = sender_bal - amount
-                state[receiver] = state.get(receiver, 0) + amount
+                state[receiver] = state.get(receiver, 100.0) + amount
                 print(f"[PythonVM] Transferred {amount} from {sender} to {receiver}")
             else:
                 print(f"[PythonVM] Transfer failed: Insufficient balance for {sender}")

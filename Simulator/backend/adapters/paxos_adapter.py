@@ -30,7 +30,7 @@ class PaxosAdapter(IChainAdapter):
         # TODO: Implement node termination logic
         pass
 
-    async def submit_transaction(self, tx: Transaction) -> str:
+    async def submit_transaction(self, tx: Transaction, from_node_id: str = None) -> str:
         """
         Submit transaction value to current proposer.
         Proposer will attempt to reach consensus on this value.

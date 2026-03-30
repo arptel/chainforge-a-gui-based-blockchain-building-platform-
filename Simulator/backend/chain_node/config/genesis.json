@@ -1,0 +1,79 @@
+{
+    "networkType": "permissioned",
+    "nodeCount": 4,
+    "requireSignature": true,
+    "permissionedType": "consortium",
+    "consortiumValidatorStruct": "weighted",
+    "consortiumConsensus": "hotstuff",
+    "consortiumIdentity": "multisig",
+    "consortiumSync": "full",
+    "enableGas": false,
+    "minGasPrice": 0,
+    "defaultGasLimit": 100000,
+    "smartContracts": [
+        {
+            "id": "1000",
+            "name": "DataStore",
+            "type": "python",
+            "code": "class DataStore:\n    def __init__(self):\n        self.store = {}\n\n    def add(self, key, value):\n        if key in self.store:\n            raise Exception(\"Key already exists\")\n        self.store[key] = value\n        return True\n\n    def update(self, key, value):\n        if key not in self.store:\n            raise Exception(\"Key does not exist\")\n        self.store[key] = value\n        return True\n\n    def get(self, key):\n        return self.store.get(key)\n\n    def exists(self, key):\n        return key in self.store\n",
+            "apiKey": "sys_key_datastore",
+            "isSystem": true
+        },
+        {
+            "id": "1001",
+            "name": "Validation",
+            "type": "python",
+            "code": "class Validation:\n    def __init__(self):\n        self.rules = {}\n\n    def validate(self, payload):\n        if not isinstance(payload, dict):\n            return False\n        return True\n\n    def validateSignature(self, payload, signature, pub_key):\n        # Basic mock cryptographic wrapper\n        return True\n",
+            "apiKey": "sys_key_validation",
+            "isSystem": true
+        },
+        {
+            "id": "1002",
+            "name": "AccessControl",
+            "type": "python",
+            "code": "class AccessControl:\n    def __init__(self):\n        self.roles = {} # role -> list of addresses\n\n    def grantRole(self, role, address):\n        if role not in self.roles:\n            self.roles[role] = []\n        if address not in self.roles[role]:\n            self.roles[role].append(address)\n        return True\n\n    def revokeRole(self, role, address):\n        if role in self.roles and address in self.roles[role]:\n            self.roles[role].remove(address)\n        return True\n\n    def hasRole(self, role, address):\n        return role in self.roles and address in self.roles[role]\n",
+            "apiKey": "sys_key_accesscontrol",
+            "isSystem": true
+        },
+        {
+            "id": "1003",
+            "name": "IdentityRegistry",
+            "type": "python",
+            "code": "class IdentityRegistry:\n    def __init__(self):\n        self.identities = {}\n\n    def registerIdentity(self, address, metadata):\n        self.identities[address] = metadata\n        return True\n\n    def getIdentity(self, address):\n        return self.identities.get(address)\n",
+            "apiKey": "sys_key_identityregistry",
+            "isSystem": true
+        },
+        {
+            "id": "1004",
+            "name": "AuditLog",
+            "type": "python",
+            "code": "import time\n\nclass AuditLog:\n    def __init__(self):\n        self.logs = []\n\n    def logAction(self, actor, action):\n        entry = {\"timestamp\": time.time(), \"actor\": actor, \"action\": action}\n        self.logs.append(entry)\n        return True\n\n    def getLogs(self, limit=10, offset=0):\n        return self.logs[offset:offset+limit]\n",
+            "apiKey": "sys_key_auditlog",
+            "isSystem": true
+        },
+        {
+            "id": "1005",
+            "name": "ValidatorCouncil",
+            "type": "python",
+            "code": "class ValidatorCouncil:\n    def __init__(self):\n        self.validators = {} # address -> weight\n\n    def addValidator(self, address, weight=1):\n        self.validators[address] = weight\n        return True\n\n    def removeValidator(self, address):\n        if address in self.validators:\n            del self.validators[address]\n        return True\n\n    def getValidators(self):\n        return self.validators\n",
+            "apiKey": "sys_key_validatorcouncil",
+            "isSystem": true
+        },
+        {
+            "id": "1006",
+            "name": "MultiSig",
+            "type": "python",
+            "code": "class MultiSig:\n    def __init__(self):\n        self.proposals = {} # id -> proposal details\n\n    def propose(self, proposal_id, action_payload, required_sigs):\n        if proposal_id not in self.proposals:\n            self.proposals[proposal_id] = {\n                \"payload\": action_payload,\n                \"required\": required_sigs,\n                \"signatures\": [],\n                \"executed\": False\n            }\n        return True\n\n    def approve(self, proposal_id, address_sig):\n        if proposal_id in self.proposals:\n            prop = self.proposals[proposal_id]\n            if address_sig not in prop[\"signatures\"]:\n                prop[\"signatures\"].append(address_sig)\n        return True\n\n    def execute(self, proposal_id):\n        prop = self.proposals.get(proposal_id)\n        if prop and len(prop[\"signatures\"]) >= prop[\"required\"] and not prop[\"executed\"]:\n            prop[\"executed\"] = True\n            return True\n        raise Exception(\"Not ready for execution\")\n",
+            "apiKey": "sys_key_multisig",
+            "isSystem": true
+        },
+        {
+            "id": "1007",
+            "name": "CertificateAuthority",
+            "type": "python",
+            "code": "class CertificateAuthority:\n    def __init__(self):\n        self.certs = {}\n        self.revoked = []\n\n    def issueCert(self, cert_id, subject_data):\n        self.certs[cert_id] = subject_data\n        return True\n\n    def revokeCert(self, cert_id):\n        if cert_id not in self.revoked:\n            self.revoked.append(cert_id)\n        return True\n\n    def verifyCert(self, cert_id):\n        return cert_id in self.certs and cert_id not in self.revoked\n",
+            "apiKey": "sys_key_certificateauthority",
+            "isSystem": true
+        }
+    ]
+}

@@ -51,31 +51,9 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # already exists
     
-    # Check if empty
+    # Check if empty (No longer seeding default users for fresh start)
     cursor.execute('SELECT COUNT(*) FROM users')
-    if cursor.fetchone()[0] == 0:
-        # Seed default users
-        users_to_seed = [
-            ("college_a", "password123", "ISSUER", "http://127.0.0.1:8080"),
-            ("college_b", "password123", "ISSUER", "http://127.0.0.1:8081")
-        ]
-        
-        try:
-            from ecdsa import SigningKey, SECP256k1
-            def generate_keypair():
-                sk = SigningKey.generate(curve=SECP256k1)
-                return sk.to_string().hex(), sk.get_verifying_key().to_string().hex()
-        except ImportError:
-            def generate_keypair():
-                return "", ""
-                
-        for u, p, r, n in users_to_seed:
-            priv, pub = generate_keypair()
-            cursor.execute('''
-                INSERT INTO users (username, password, blockchain_address, private_key, role, node_url)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (u, p, pub if pub else f"{u}_address", priv, r, n))
-            
+    
     conn.commit()
     conn.close()
 

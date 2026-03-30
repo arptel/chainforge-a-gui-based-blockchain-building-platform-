@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { KeyRound, Lock, User, Cpu, HardDrive, Eye, EyeOff, ShieldCheck, FolderOpen } from 'lucide-react';
-import { register, browseFolder } from '../api';
+import { KeyRound, Lock, User, Cpu, HardDrive, Eye, EyeOff, ShieldCheck, FolderOpen, RefreshCw } from 'lucide-react';
+import { register, browseFolder, getSyncStatus } from '../api';
 
 const LOADING_STEPS = [
     "Setting up account...",
@@ -19,6 +19,8 @@ export default function Register() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [loadingStep, setLoadingStep] = useState(0);
+    const [syncing, setSyncing] = useState(false);
+    const [syncProgress, setSyncProgress] = useState({ local_blocks: 0, network_blocks: 0 });
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -58,13 +60,84 @@ export default function Register() {
         try {
             const data = await register(username, password, dbPath);
             localStorage.setItem('token', data.access_token);
-            navigate('/college');
+            
+            // Start sync gate — poll until node is synced
+            setSyncing(true);
+            setLoading(false);
+            
+            const pollSync = async () => {
+                let attempts = 0;
+                const maxAttempts = 30; // 60 seconds max
+                while (attempts < maxAttempts) {
+                    try {
+                        const status = await getSyncStatus();
+                        setSyncProgress({ 
+                            local_blocks: status.local_blocks || 0, 
+                            network_blocks: status.network_blocks || 0 
+                        });
+                        if (status.synced && status.node_online) {
+                            setSyncing(false);
+                            navigate('/college');
+                            return;
+                        }
+                    } catch (e) {
+                        // Node may not be ready yet, keep polling
+                    }
+                    attempts++;
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+                // Timeout — navigate anyway
+                setSyncing(false);
+                navigate('/college');
+            };
+            pollSync();
         } catch (err) {
             setError(err.response?.data?.detail || 'Registration failed.');
         } finally {
             setLoading(false);
         }
     };
+
+    if (syncing) {
+        return (
+            <div className="min-h-[70vh] flex items-center justify-center p-4">
+                <div className="w-full max-w-md animate-fade-in-up">
+                    <div className="soft-card p-12 shadow-2xl text-center">
+                        <div className="relative w-20 h-20 mx-auto mb-8">
+                            <div className="absolute inset-0 border-4 border-slate-100 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <RefreshCw className="w-8 h-8 text-indigo-600 animate-pulse" />
+                            </div>
+                        </div>
+                        <h2 className="text-2xl font-black text-slate-950 mb-3 tracking-tight">Syncing Blockchain</h2>
+                        <p className="text-slate-500 text-sm font-bold mb-8">Your node is synchronizing with the network...</p>
+                        
+                        {/* Progress bar */}
+                        <div className="w-full bg-slate-100 rounded-full h-3 mb-4 overflow-hidden">
+                            <div 
+                                className="bg-indigo-600 h-3 rounded-full transition-all duration-700 ease-out"
+                                style={{ width: syncProgress.network_blocks > 0 
+                                    ? `${Math.min(100, (syncProgress.local_blocks / syncProgress.network_blocks) * 100)}%` 
+                                    : '15%' 
+                                }}
+                            />
+                        </div>
+                        <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            <span>{syncProgress.local_blocks} blocks</span>
+                            <span>{syncProgress.network_blocks > 0 ? `${syncProgress.network_blocks} target` : 'Discovering peers...'}</span>
+                        </div>
+                        
+                        <div className="mt-8 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">
+                                ● downloading historical blocks from peer nodes
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-[70vh] flex items-center justify-center p-4">

@@ -98,7 +98,8 @@ def main():
         role=args.role, 
         require_signature=require_sig,
         min_gas_price=config.get("min_gas_price", 0),
-        db_path=args.db_path
+        db_path=args.db_path,
+        api_port=args.api_port
     )
 
     # 2b. Give the network a reference to the chain so it can process incoming P2P messages
