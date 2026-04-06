@@ -65,6 +65,60 @@ contract Storage {
         return number;
     }
 }`
+    ],
+    "c++": [
+        {
+            name: "Simple Storage",
+            code: `static int storage_value = 0;
+
+extern "C" {
+    void set(int value) {
+        storage_value = value;
+    }
+    
+    int get() {
+        return storage_value;
+    }
+}`
+        },
+        {
+            name: "Token (ERC20-like)",
+            code: `#include <map>
+#include <string>
+
+static std::map<std::string, int> balances;
+static int total_supply = 0;
+
+extern "C" {
+    void mint(const char* to, int amount) {
+        balances[std::string(to)] += amount;
+        total_supply += amount;
+    }
+
+    bool transfer(const char* from, const char* to, int amount) {
+        if(balances[std::string(from)] < amount) return false;
+        balances[std::string(from)] -= amount;
+        balances[std::string(to)] += amount;
+        return true;
+    }
+
+    int balance_of(const char* address) {
+        return balances[std::string(address)];
+    }
+}`
+        },
+        {
+            name: "Logger",
+            code: `#include <string>
+#include <vector>
+
+static std::vector<std::string> logs;
+
+extern "C" {
+    void log_message(const char* message) {
+        logs.push_back(std::string(message));
+    }
+}`
         }
     ]
 };

@@ -89,12 +89,18 @@ export const useWizardStore = create<WizardState>((set) => ({
     resetConfigForType: (type) => set((state) => {
         // Reset to initial config but with specific network type
         // This ensures previous selections are cleared when switching types at Step 1
+        const newConfig: Partial<ChainConfig> = {
+            networkType: type,
+            nodeCount: 4,
+            requireSignature: true
+        };
+        
+        if (type === "public") {
+            newConfig.publicNodeRoles = ["miner", "full", "light"];
+        }
+        
         return {
-            config: {
-                networkType: type,
-                nodeCount: 4,
-                requireSignature: true
-            }
+            config: newConfig as ChainConfig
         };
     })
 }));

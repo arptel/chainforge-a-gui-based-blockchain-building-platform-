@@ -14,7 +14,7 @@ const generateApiKey = () => 'sk_' + Math.random().toString(36).substring(2, 15)
 interface SmartContract {
     id: string;
     name: string;
-    type: 'python' | 'solidity';
+    type: 'python' | 'solidity' | 'c++';
     code: string;
     apiKey: string;
     isSystem?: boolean;
@@ -29,7 +29,7 @@ interface SmartContractListProps {
 export const SmartContractList: React.FC<SmartContractListProps> = ({ contracts = [], onChange, projectConfig }) => {
     const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
     const [newContractName, setNewContractName] = useState("");
-    const [newContractType, setNewContractType] = useState<'python' | 'solidity'>('python');
+    const [newContractType, setNewContractType] = useState<'python' | 'solidity' | 'c++'>('python');
     const [defaultContracts, setDefaultContracts] = useState<SmartContract[]>([]);
 
     // Create a stable string representation of just the network configuration fields
@@ -43,8 +43,19 @@ export const SmartContractList: React.FC<SmartContractListProps> = ({ contracts 
         centralizedSync: projectConfig.centralizedSync,
         consortiumSync: projectConfig.consortiumSync,
         permissionedType: projectConfig.permissionedType,
-        publicToken: projectConfig.publicToken
+        publicToken: projectConfig.publicToken,
+        publicRuntime: projectConfig.publicRuntime
     }) : "";
+
+    const isWasm = projectConfig?.networkType === 'public' && projectConfig?.publicRuntime === 'wasm';
+
+    useEffect(() => {
+        if (isWasm && newContractType !== 'c++') {
+            setNewContractType('c++');
+        } else if (!isWasm && newContractType === 'c++') {
+            setNewContractType('python');
+        }
+    }, [isWasm]);
 
     useEffect(() => {
         if (!projectConfig) return;
@@ -77,16 +88,24 @@ export const SmartContractList: React.FC<SmartContractListProps> = ({ contracts 
         if (!newContractName) return;
 
         // Simple Boilerplate
-        const boilerplate = newContractType === 'python' ?
-            `class ${newContractName}:
+        let boilerplate = "";
+        if (newContractType === 'c++') {
+            boilerplate = `extern "C" {
+    // Write your exported WASM functions here
+    
+}`;
+        } else if (newContractType === 'python') {
+            boilerplate = `class ${newContractName}:
     def __init__(self):
-        pass` :
-            `// SPDX-License-Identifier: MIT
+        pass`;
+        } else {
+            boilerplate = `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 contract ${newContractName} {
     constructor() {}
 }`;
+        }
 
         const newContract: SmartContract = {
             id: generateId(),
@@ -156,8 +175,14 @@ contract ${newContractName} {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="python">Python</SelectItem>
-                                    <SelectItem value="solidity">Solidity</SelectItem>
+                                    {isWasm ? (
+                                        <SelectItem value="c++">C++</SelectItem>
+                                    ) : (
+                                        <>
+                                            <SelectItem value="python">Python</SelectItem>
+                                            <SelectItem value="solidity">Solidity</SelectItem>
+                                        </>
+                                    )}
                                 </SelectContent>
                             </Select>
                             <Button onClick={handleAddContract} size="sm" className="flex-1" disabled={!newContractName}>
@@ -179,7 +204,7 @@ contract ${newContractName} {
                             onClick={() => setSelectedContractId(c.id)}
                         >
                             <div className="flex items-center gap-3 overflow-hidden">
-                                <div className={`p-2 rounded-md ${c.type === 'python' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>
+                                <div className={`p-2 rounded-md ${c.type === 'python' ? 'bg-blue-100 text-blue-700' : c.type === 'c++' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'}`}>
                                     <Code className="w-4 h-4" />
                                 </div>
                                 <div className="truncate flex flex-col items-start">

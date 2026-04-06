@@ -23,7 +23,11 @@ class ChainBuilder:
             
         from modules.smart_contracts.Contract_registry import SYSTEM_CONTRACTS
         
-        def generate_dummy_code(name, methods):
+        def generate_dummy_code(name, methods, is_wasm=False):
+            if is_wasm:
+                methods_code = "\n".join([f"    void {m}() {{}}" for m in methods])
+                return f'extern "C" {{\n{methods_code}\n}}'
+                
             contract_file_path = os.path.join(core_dir, "modules", "smart_contracts", f"{name}.py")
             if os.path.exists(contract_file_path):
                 with open(contract_file_path, "r", encoding="utf-8") as f:
@@ -37,13 +41,15 @@ class ChainBuilder:
         default_contracts = []
         contract_id_counter = 1000
         
+        is_wasm = config.get("networkType") == "public" and config.get("publicRuntime") == "wasm"
+        
         # ALWAYS INCLUDE BASE
         for c_name, c_data in SYSTEM_CONTRACTS.get("base", {}).items():
             default_contracts.append({
                 "id": str(contract_id_counter),
                 "name": c_name,
-                "type": "python",
-                "code": generate_dummy_code(c_name, c_data.get("methods", [])),
+                "type": "c++" if is_wasm else "python",
+                "code": generate_dummy_code(c_name, c_data.get("methods", []), is_wasm),
                 "apiKey": f"sys_key_{c_name.lower()}",
                 "isSystem": True
             })
@@ -72,8 +78,8 @@ class ChainBuilder:
                     default_contracts.append({
                         "id": str(contract_id_counter),
                         "name": c_name,
-                        "type": "python",
-                        "code": generate_dummy_code(c_name, c_data.get("methods", [])),
+                        "type": "c++" if is_wasm else "python",
+                        "code": generate_dummy_code(c_name, c_data.get("methods", []), is_wasm),
                         "apiKey": f"sys_key_{c_name.lower()}",
                         "isSystem": True
                     })
@@ -176,6 +182,8 @@ class ChainBuilder:
                              
                      if c['type'] == 'python':
                          zip_file.writestr(f"modules/smart_contracts/{safe_name}.py", c['code'])
+                     elif c['type'] == 'c++':
+                         zip_file.writestr(f"smart_contracts/{safe_name}.cpp", c['code'])
                      else:
                          zip_file.writestr(f"smart_contracts/{safe_name}.sol", c['code'])
                  

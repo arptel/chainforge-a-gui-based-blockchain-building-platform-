@@ -51,10 +51,8 @@ export default function CreateProjectPage() {
         }
     };
 
-    // Helper to determine total steps based on path
     const getTotalSteps = () => {
-        // Updated to 9 steps to include Gas & Fees
-        return 9;
+        return config.networkType === 'public' ? 8 : 9;
     };
 
     const renderStep = () => {
@@ -128,32 +126,7 @@ export default function CreateProjectPage() {
                             </div>
                         </div>
                     );
-                case 3: // Node Roles
-                    return (
-                        <div className="space-y-6">
-                            <h3 className="text-lg font-medium text-primary">Participating Node Roles</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {['miner', 'full', 'light'].map((role: any) => (
-                                    <div key={role}
-                                        className={`cursor-pointer border-2 rounded-xl p-4 transition-all hover:bg-accent flex flex-col items-center text-center space-y-3 ${config.publicNodeRoles?.includes(role) ? 'border-primary bg-accent/50' : 'border-muted bg-card'}`}
-                                        onClick={() => {
-                                            const roles = config.publicNodeRoles || [];
-                                            const newRoles = roles.includes(role) ? roles.filter(r => r !== role) : [...roles, role];
-                                            setConfig({ publicNodeRoles: newRoles as any });
-                                        }}
-                                    >
-                                        <div className={`p-3 rounded-full ${config.publicNodeRoles?.includes(role) ? 'bg-background text-primary' : 'bg-secondary'}`}>
-                                            <Server className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <span className="capitalize font-semibold block">{role} Node</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    );
-                case 4: // Runtime
+                case 3: // Runtime
                     return (
                         <div className="space-y-6">
                             <h3 className="text-lg font-medium text-primary">Smart Contract Runtime</h3>
@@ -163,7 +136,7 @@ export default function CreateProjectPage() {
                             </div>
                         </div>
                     );
-                case 5: // Sync
+                case 4: // Sync
                     return (
                         <div className="space-y-6">
                             <h3 className="text-lg font-medium text-primary">Synchronization Mode</h3>
@@ -174,7 +147,7 @@ export default function CreateProjectPage() {
                             </div>
                         </div>
                     );
-                case 6: // Token
+                case 5: // Token
                     return (
                         <div className="space-y-6">
                             <h3 className="text-lg font-medium text-primary">Network Economy</h3>
@@ -184,9 +157,9 @@ export default function CreateProjectPage() {
                             </div>
                         </div>
                     );
-                case 7: // Gas & Fees
+                case 6: // Gas & Fees
                     return renderGasFees();
-                case 8: // Smart Contracts
+                case 7: // Smart Contracts
                     return (
                         <div className="space-y-6">
                             <h3 className="text-lg font-medium text-primary">Smart Contracts</h3>
@@ -198,7 +171,7 @@ export default function CreateProjectPage() {
                             />
                         </div>
                     );
-                case 9:
+                case 8:
                     return renderReview();
             }
         }
@@ -545,12 +518,11 @@ export default function CreateProjectPage() {
         if (config.networkType === 'public') {
             switch (step) {
                 case 2: return !!config.publicConsensus;
-                case 3: return !!config.publicNodeRoles && config.publicNodeRoles.length > 0;
-                case 4: return !!config.publicRuntime;
-                case 5: return !!config.publicSyncMode;
-                case 6: return !!config.publicToken;
-                case 7: return config.enableGas !== undefined; // Gas Fees must be selected
-                case 8: return true; // Smart Contracts are optional
+                case 3: return !!config.publicRuntime;
+                case 4: return !!config.publicSyncMode;
+                case 5: return !!config.publicToken;
+                case 6: return config.enableGas !== undefined; // Gas Fees must be selected
+                case 7: return true; // Smart Contracts are optional
                 default: return true;
             }
         }

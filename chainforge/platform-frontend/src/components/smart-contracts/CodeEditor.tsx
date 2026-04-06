@@ -4,7 +4,7 @@ import Editor, { useMonaco } from '@monaco-editor/react';
 interface CodeEditorProps {
     value: string;
     onChange: (value: string) => void;
-    language: 'python' | 'solidity';
+    language: 'python' | 'solidity' | 'c++';
     readOnly?: boolean;
 }
 
@@ -136,7 +136,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, languag
             <div className="flex-1 bg-zinc-950 pt-2">
                 <Editor
                     height="100%"
-                    language={language === 'solidity' ? 'sol' : 'python'}
+                    language={language === 'solidity' ? 'sol' : language === 'c++' ? 'cpp' : 'python'}
                     theme="vs-dark"
                     value={value}
                     onChange={(val) => onChange(val || '')}
