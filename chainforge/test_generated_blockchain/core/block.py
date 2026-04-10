@@ -26,3 +26,18 @@ class Block:
 
     def to_dict(self) -> Dict[str, Any]:
         return self.__dict__
+        
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Block':
+        b = cls(
+            index=data.get('index', 0),
+            transactions=data.get('transactions', []),
+            timestamp=data.get('timestamp', time.time()),
+            previous_hash=data.get('previous_hash', ""),
+            validator=data.get('validator', "")
+        )
+        if 'nonce' in data:
+            b.nonce = data['nonce']
+        if 'hash' in data:
+            b.hash = data['hash']
+        return b

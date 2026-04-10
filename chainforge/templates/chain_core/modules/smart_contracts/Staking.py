@@ -1,18 +1,49 @@
 class Staking:
     def __init__(self):
-        self.stakes = {}
+        pass
 
-    def stake(self, address, amount):
-        if address not in self.stakes:
-            self.stakes[address] = 0
-        self.stakes[address] += amount
+    def stake(self, caller=None, state=None, address=None, amount=None, **kwargs):
+        if state is None: return False
+        
+        # Address validation
+        if address and address != caller:
+            return {"error": "Unauthorized: Can only stake own funds"}
+        address = caller
+        
+        if amount is None or amount <= 0: return {"error": "Invalid amount"}
+        
+        # Check canonical balance
+        if state.get(address, 0) < amount:
+            return {"error": "Insufficient canonical balance to stake"}
+            
+        # Deduct from canonical balance
+        state[address] -= amount
+        
+        # Add to locked stakes
+        stakes = state.setdefault("system.staking", {})
+        stakes[address] = stakes.get(address, 0) + amount
         return True
 
-    def unstake(self, address, amount):
-        if address in self.stakes and self.stakes[address] >= amount:
-            self.stakes[address] -= amount
+    def unstake(self, caller=None, state=None, address=None, amount=None, **kwargs):
+        if state is None: return False
+        
+        if address and address != caller:
+            return {"error": "Unauthorized: Can only unstake own funds"}
+        address = caller
+        
+        if amount is None or amount <= 0: return {"error": "Invalid amount"}
+        
+        stakes = state.setdefault("system.staking", {})
+        if address in stakes and stakes[address] >= amount:
+            # Remove from stakes
+            stakes[address] -= amount
+            # Return to canonical balance
+            state[address] = state.get(address, 0) + amount
             return True
-        raise Exception("Insufficient stake")
+            
+        return {"error": "Insufficient staked balance"}
 
-    def getStake(self, address):
-        return self.stakes.get(address, 0)
+    def getStake(self, caller=None, state=None, address=None, **kwargs):
+        if state is None: return 0
+        return state.get("system.staking", {}).get(address, 0)
+

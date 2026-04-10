@@ -26,6 +26,7 @@ class EVMRuntime(VMInterface):
         self._chain_id = None
         self._name_to_address = {}
         self._contracts = {}
+        self.contracts = {}  # System contracts registry
         self.default_gas_limit = 100000
 
     def _init_chain(self, state: dict):
@@ -156,6 +157,8 @@ class EVMRuntime(VMInterface):
                 return True
             return False
         elif tx_type == "contract_call":
+            if "contract_id" in tx:
+                return self._exec_system_contract_call(tx, state)
             return self._exec_contract_call(tx, state)
         return False
 
@@ -190,4 +193,37 @@ class EVMRuntime(VMInterface):
             state[sender_key] = vm.state.get_balance(sender_addr)
             return not (hasattr(computation, 'is_error') and computation.is_error)
         except Exception:
+            return False
+
+    def _exec_system_contract_call(self, tx, state) -> bool:
+        contract_id = tx.get("contract_id")
+        method = tx.get("method")
+        args = tx.get("args", {})
+        sender = tx.get("from", tx.get("sender"))
+        sys_contracts = getattr(self, "contracts", {})
+        
+        if contract_id not in sys_contracts:
+            print(f"[EVM] Error: System contract {contract_id} not found.")
+            return False
+            
+        contract_instance = sys_contracts[contract_id]
+        if not hasattr(contract_instance, method):
+            print(f"[EVM] Error: Method {method} not found on systemic {contract_id}.")
+            return False
+            
+        try:
+            func = getattr(contract_instance, method)
+            import inspect
+            if "state" in inspect.signature(func).parameters:
+                result = func(caller=sender, state=state, **args)
+            else:
+                result = func(caller=sender, **args)
+            
+            if isinstance(result, dict) and "error" in result:
+                print(f"[EVM] System Contract Error: {result['error']}")
+                return False
+            return True
+        except Exception as e:
+            import traceback
+            print(f"[EVM] Pre-deployed system contract failed:\n{traceback.format_exc()}")
             return False

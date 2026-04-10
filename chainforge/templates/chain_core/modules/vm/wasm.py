@@ -17,6 +17,7 @@ except ImportError:
 class WASMRuntime(VMInterface):
     def __init__(self):
         self._contracts = {}
+        self.contracts = {}  # System contracts registry
         self._engine = wasmtime.Engine() if WASMTIME_AVAILABLE else None
         self.default_gas_limit = 100000
 
@@ -42,6 +43,8 @@ class WASMRuntime(VMInterface):
             tx["contract_address"] = addr
             return True
         elif tx_type == "contract_call":
+            if "contract_id" in tx:
+                return self._exec_system_contract_call(tx, state)
             contract_addr, func_name = tx.get("to", ""), tx.get("method", "")
             if contract_addr not in self._contracts: return False
             contract = self._contracts[contract_addr]
@@ -55,3 +58,36 @@ class WASMRuntime(VMInterface):
             state[f"{contract_addr}_invocations"] = state.get(f"{contract_addr}_invocations", 0) + 1
             return True
         return False
+
+    def _exec_system_contract_call(self, tx, state) -> bool:
+        contract_id = tx.get("contract_id")
+        method = tx.get("method")
+        args = tx.get("args", {})
+        sender = tx.get("from", tx.get("sender"))
+        sys_contracts = getattr(self, "contracts", {})
+        
+        if contract_id not in sys_contracts:
+            print(f"[WASM] Error: System contract {contract_id} not found.")
+            return False
+            
+        contract_instance = sys_contracts[contract_id]
+        if not hasattr(contract_instance, method):
+            print(f"[WASM] Error: Method {method} not found on systemic {contract_id}.")
+            return False
+            
+        try:
+            func = getattr(contract_instance, method)
+            import inspect
+            if "state" in inspect.signature(func).parameters:
+                result = func(caller=sender, state=state, **args)
+            else:
+                result = func(caller=sender, **args)
+            
+            if isinstance(result, dict) and "error" in result:
+                print(f"[WASM] System Contract Error: {result['error']}")
+                return False
+            return True
+        except Exception as e:
+            import traceback
+            print(f"[WASM] Pre-deployed system contract failed:\n{traceback.format_exc()}")
+            return False

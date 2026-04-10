@@ -54,7 +54,7 @@ class PythonVM(VMInterface):
                 raise ValueError("'with' statements are forbidden.")
 
     def execute_transaction(self, tx, state):
-        sender = tx.get("from")
+        sender = tx.get("from", tx.get("sender"))
         gas_price = tx.get("gas_price", 0)
         gas_limit = tx.get("gas_limit", self.default_gas_limit)  # Use project configured default
         gas_fee = gas_price * gas_limit

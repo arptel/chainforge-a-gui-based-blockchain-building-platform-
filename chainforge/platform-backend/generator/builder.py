@@ -33,7 +33,7 @@ class ChainBuilder:
                 with open(contract_file_path, "r", encoding="utf-8") as f:
                     return f.read()
                     
-            methods_code = "\n".join([f"    def {m}(self, *args, **kwargs):\n        pass" for m in methods])
+            methods_code = "\n".join([f"    def {m}(self, caller=None, state=None, **kwargs):\n        pass" for m in methods])
             if not methods_code:
                 methods_code = "    pass"
             return f"class {name}:\n    def __init__(self):\n        pass\n\n{methods_code}\n"
@@ -312,6 +312,12 @@ router = APIRouter()
 
 # Helper to load contracts dynamically
 contracts = {}
+contract_api_keys = {
+"""
+        for c in contracts:
+            code += f'    "{c["id"]}": "{c.get("apiKey", "")}",\n'
+            
+        code += """}
 
 def load_contracts():
     sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -368,6 +374,10 @@ def set_chain(chain):
 def execute_contract(contract_id: str, method: str, args: dict = {}, x_api_key: Optional[str] = Header(None)):
     if contract_id not in contracts:
         raise HTTPException(status_code=404, detail="Contract not found")
+        
+    expected_key = contract_api_keys.get(contract_id)
+    if expected_key and x_api_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
     
     contract = contracts[contract_id]
     
@@ -377,13 +387,18 @@ def execute_contract(contract_id: str, method: str, args: dict = {}, x_api_key: 
     if chain_instance is None:
         raise HTTPException(status_code=500, detail="Blockchain instance not linked to router")
 
+    # Preserve backward compatibility by tolerating both sender and from
+    # Use args.get so we don't fully remove it if it's somehow required by the contract
+    sender = args.get("from", args.get("sender", "user"))
+
     # Instead of executing directly, we create a transaction
     tx = {
         "type": "contract_call",
         "contract_id": contract_id,
         "method": method,
         "args": args,
-        "sender": "user" # Setup a real sender in production
+        "sender": sender,
+        "from": sender
     }
     
     chain_instance.add_transaction(tx)

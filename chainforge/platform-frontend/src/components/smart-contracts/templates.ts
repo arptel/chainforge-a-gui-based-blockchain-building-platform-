@@ -65,6 +65,7 @@ contract Storage {
         return number;
     }
 }`
+        }
     ],
     "c++": [
         {

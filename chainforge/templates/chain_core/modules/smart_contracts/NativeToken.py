@@ -1,27 +1,43 @@
 class NativeToken:
     def __init__(self):
-        self.balances = {}
-        self.allowances = {}
+        pass
 
-    def _mint(self, address, amount):
-        if address not in self.balances:
-            self.balances[address] = 0
-        self.balances[address] += amount
-
-    def transfer(self, sender, receiver, amount):
-        if self.balances.get(sender, 0) < amount:
-            raise Exception("Insufficient balance")
-        self.balances[sender] -= amount
-        if receiver not in self.balances:
-            self.balances[receiver] = 0
-        self.balances[receiver] += amount
+    def _mint(self, caller=None, state=None, address=None, amount=None, **kwargs):
+        if state is None: return False
+        if not address or amount is None: return {"error": "Invalid parameters"}
+        state[address] = state.get(address, 0) + amount
         return True
 
-    def balanceOf(self, address):
-        return self.balances.get(address, 0)
-
-    def approve(self, owner, spender, amount):
-        if owner not in self.allowances:
-            self.allowances[owner] = {}
-        self.allowances[owner][spender] = amount
+    def transfer(self, caller=None, state=None, sender=None, receiver=None, amount=None, **kwargs):
+        if state is None: return False
+        if amount is None or amount <= 0: return {"error": "Invalid amount"}
+        
+        # Enforce caller authorization
+        if sender and sender != caller:
+            return {"error": "Unauthorized: caller cannot transfer from another account"}
+        sender = caller
+        
+        if not sender or not receiver: return {"error": "Invalid sender or receiver"}
+        
+        if state.get(sender, 0) < amount:
+            return {"error": "Insufficient balance"}
+            
+        state[sender] -= amount
+        state[receiver] = state.get(receiver, 0) + amount
         return True
+
+    def balanceOf(self, caller=None, state=None, address=None, **kwargs):
+        if state is None: return 0
+        return state.get(address, 0)
+
+    def approve(self, caller=None, state=None, owner=None, spender=None, amount=None, **kwargs):
+        if state is None: return False
+        owner = owner or caller
+        if not owner or not spender or amount is None: return {"error": "Invalid parameters"}
+        
+        allowances = state.setdefault("system.token.allowances", {})
+        if owner not in allowances:
+            allowances[owner] = {}
+        allowances[owner][spender] = amount
+        return True
+

@@ -6,8 +6,8 @@ class PoAConsensus(ConsensusInterface):
     """
     Proof of Authority. Checks if the block creator holds active authority in the NodeRegistry.
     """
-    def __init__(self, chain_state: dict):
-        self.chain_state = chain_state
+    def __init__(self, chain_state: dict = None):
+        self.chain_state = chain_state if chain_state is not None else {}
 
     def validate_block(self, block: Block) -> bool:
         validator = block.validator

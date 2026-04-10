@@ -4,6 +4,9 @@ class WASMRuntime(VMInterface):
     """
     Executes WebAssembly (WASM) smart contracts.
     """
+    def __init__(self):
+        self.contracts = {}
+
     def deploy_contract(self, code, state):
         print(f"[WASM] Compiling WebAssembly binary block ({len(code)} bytes)...")
         # In a real environment, we'd use wasmtime to compile

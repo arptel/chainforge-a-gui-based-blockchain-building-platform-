@@ -15,7 +15,8 @@ class P2PNetwork(NetworkInterface):
         self.port = port
         
     async def start_server(self):
-        # We rely on the FastAPI server for receiving HTTP calls
+        # Inbound networking is managed entirely by FastAPI.
+        # This explicit bypass prevents spawning a redundant network stack.
         pass
 
     def _broadcast_task(self, endpoint: str, payload: dict):
@@ -27,8 +28,17 @@ class P2PNetwork(NetworkInterface):
             except Exception as e:
                 print(f"Failed to broadcast to {peer}: {e}")
 
-    def broadcast(self, message: Any):
-        pass
+    def broadcast(self, message: dict):
+        """Route generic network messages based on type."""
+        msg_type = message.get("type", "")
+        if msg_type == "NEW_TRANSACTION":
+            self.broadcast_transaction(message.get("data", {}))
+        elif msg_type == "NEW_BLOCK":
+            # Some callers pass object data directly, others may pass block objects
+            data = message.get("data", {})
+            threading.Thread(target=self._broadcast_task, args=("/blocks/sync", {"block": data}), daemon=True).start()
+        else:
+            threading.Thread(target=self._broadcast_task, args=("/message", message), daemon=True).start()
 
     def broadcast_transaction(self, tx: dict):
         """Broadcast a transaction to all connected peers"""

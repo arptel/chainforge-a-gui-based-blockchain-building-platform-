@@ -2,6 +2,7 @@ import requests
 from interfaces.sync import SyncInterface
 from core.chain import Blockchain
 from interfaces.network import NetworkInterface
+from core.block import Block
 
 class FastSync(SyncInterface):
     """
@@ -23,14 +24,18 @@ class FastSync(SyncInterface):
         print(f"[FastSync] Initiating state snapshot download from {url}...")
         
         try:
-            # Prototype mock for grabbing state directly
-            # response = requests.get(f"{url}/state/snapshot")
-            print(f"[FastSync] Successfully downloaded and applied 10MB state.json")
+            resp_state = requests.get(f"{url}/state", timeout=5)
+            resp_state.raise_for_status()
+            self.chain.state = resp_state.json()
+            print("[FastSync] Applied state snapshot.")
             
-            # Fetch recent headers
-            # response = requests.get(f"{url}/headers?last=100")
-            print(f"[FastSync] Downloaded 100 recent block headers for verification.")
-            print(f"[FastSync] Node is now caught up without executing old transactions.")
+            resp_headers = requests.get(f"{url}/headers", timeout=5)
+            if resp_headers.status_code == 200:
+                headers = resp_headers.json()
+                blocks = [Block.from_dict(h) for h in headers]
+                if len(blocks) > len(self.chain.chain):
+                    self.chain.replace_chain(blocks)
+                    print("[FastSync] Node is now caught up without executing old transactions.")
         except Exception as e:
             print(f"[FastSync] Sync failed: {e}")
 

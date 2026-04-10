@@ -6,22 +6,21 @@ class PoAConsensus(ConsensusInterface):
     """
     Proof of Authority. Checks if the block creator holds active authority in the NodeRegistry.
     """
-    def __init__(self, chain_state: dict):
-        self.chain_state = chain_state
+    def __init__(self, chain_state: dict = None):
+        self.chain_state = chain_state if chain_state is not None else {}
 
     def validate_block(self, block: Block) -> bool:
         validator = block.validator
         
-        # Rely heavily on the NodeRegistry contract deployed at genesis
-        # In our generated network, authority is tracked via the "sys_noderegistry" key mappings
-        # In EVM emulation, the mapping 'nodeRoles' is hashed in storage. For mock MWIs, we just check state directly
-        is_authority = self.chain_state.get(f"auth_role_{validator}", False)
+        # Check if the block creator is listed in the system.authorities array
+        # initialized by the AuthorityManagement smart contract.
+        is_authority = validator in self.chain_state.get("system.authorities", [])
         
         if is_authority:
             print(f"[PoA] Authorized! Block {block.index} signed by valid Authority.")
             return True
         else:
-            print(f"[PoA] REJECTED. Validator {validator} is not registered in NodeRegistry.")
+            print(f"[PoA] REJECTED. Validator {validator} is not registered as an Authority.")
             return False
 
     def propose_block(self, transactions: list, previous_hash: str, index: int, miner_address: str, state_root: str = "") -> Block:

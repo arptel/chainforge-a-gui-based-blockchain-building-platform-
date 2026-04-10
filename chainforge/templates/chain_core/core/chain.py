@@ -21,6 +21,11 @@ class Blockchain:
         self.require_signature = require_signature
         self.min_gas_price = min_gas_price
         self.state: Dict[str, Any] = {}
+        
+        # Inject state reference into consensus if it needs it (e.g., PoA, PoS)
+        if self.consensus and hasattr(self.consensus, 'chain_state'):
+            self.consensus.chain_state = self.state
+            
         self.mempool = Mempool(min_gas_price=min_gas_price)
 
         # Optional SQLite persistence — None means in-memory only
@@ -50,23 +55,31 @@ class Blockchain:
         - Nonce (replay protection)
         - Gas price (spam protection)
         """
+        # Normalize sender/from aliases to preserve demo usability
+        tx_copy = dict(tx)
+        sender = tx_copy.get("from", tx_copy.get("sender"))
+        if sender:
+            tx_copy["from"] = sender
+            tx_copy["sender"] = sender
+
         if self.require_signature:
-            if 'signature' not in tx:
-                print("Transaction rejected: No signature provided.")
+            if 'signature' not in tx_copy:
+                print("Transaction rejected: No signature provided. (Signature enforcement is ON)")
                 return False
-            sender_public_key = tx.get("from")
-            signature = tx.get("signature")
+            sender_public_key = tx_copy.get("from")
+            signature = tx_copy.get("signature")
             try:
                 from core.crypto import verify_signature
             except ImportError:
+                print("Transaction rejected: core.crypto missing but signature required.")
                 return False
-            if not verify_signature(tx, signature, sender_public_key):
-                print(f"Transaction rejected: Invalid signature for sender {sender_public_key[:8]}...")
+            if not verify_signature(tx_copy, signature, sender_public_key):
+                print(f"Transaction rejected: Invalid signature for sender {str(sender_public_key)[:8]}...")
                 return False
 
-        ok, reason = self.mempool.add(tx)
+        ok, reason = self.mempool.add(tx_copy)
         if ok:
-            print(f"Transaction added to pool: {tx}")
+            print(f"Transaction added to pool: {tx_copy}")
         else:
             print(f"Transaction rejected: {reason}")
         return ok

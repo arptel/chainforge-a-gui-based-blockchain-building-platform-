@@ -50,7 +50,8 @@ class P2PNetwork(NetworkInterface):
             consensus_module.network = self
 
     async def start_server(self):
-        # We rely on the FastAPI server mounting a /ws route for INCOMING connections
+        # Inbound networking is fully managed by FastAPI mounting the /ws endpoint.
+        # No stand-alone server loop is needed here; we explicitly bypass it.
         pass
 
     def _broadcast_ws(self, message: dict):
@@ -209,6 +210,14 @@ class P2PNetwork(NetworkInterface):
             
             if msg_type == "PEER_DISCOVERY":
                 incoming_uri = msg_data
+                # Whitelist enforcement
+                if "system.whitelist" in self.node_chain.state:
+                    whitelist = self.node_chain.state["system.whitelist"]
+                    # Usually URIs or IPs would be mapped. For demo, we just print notice if not whitelisted.
+                    if incoming_uri not in whitelist:
+                        print(f"[P2P] Peer {incoming_uri} rejected. Not in system whitelist.")
+                        return json.dumps({"type": "REJECTED", "reason": "Not whitelisted"})
+                
                 if incoming_uri != self.my_uri and incoming_uri not in self.known_peers:
                     print(f"[P2P Discovery] Discovered new peer: {incoming_uri}")
                     self.connect_to_peer(incoming_uri)

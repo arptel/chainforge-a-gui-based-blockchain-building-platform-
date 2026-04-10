@@ -1,21 +1,27 @@
 class DataStore:
     def __init__(self):
-        self.store = {}
+        pass
 
-    def add(self, key, value):
-        if key in self.store:
-            raise Exception("Key already exists")
-        self.store[key] = value
+    def add(self, caller=None, state=None, key=None, value=None, **kwargs):
+        if state is None: return False
+        store = state.setdefault("system.datastore", {})
+        if key in store:
+            return {"error": "Key already exists"}
+        store[key] = value
         return True
 
-    def update(self, key, value):
-        if key not in self.store:
-            raise Exception("Key does not exist")
-        self.store[key] = value
+    def update(self, caller=None, state=None, key=None, value=None, **kwargs):
+        if state is None: return False
+        store = state.setdefault("system.datastore", {})
+        if key not in store:
+            return {"error": "Key does not exist"}
+        store[key] = value
         return True
 
-    def get(self, key):
-        return self.store.get(key)
+    def get(self, caller=None, state=None, key=None, **kwargs):
+        if state is None: return None
+        return state.get("system.datastore", {}).get(key)
 
-    def exists(self, key):
-        return key in self.store
+    def exists(self, caller=None, state=None, key=None, **kwargs):
+        if state is None: return False
+        return key in state.get("system.datastore", {})

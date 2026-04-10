@@ -16,6 +16,11 @@ class Blockchain:
         self.runtime = runtime
         self.role = role
         self.state: Dict[str, Any] = {} # Simple state 
+        
+        # Inject state reference into consensus if it needs it (e.g., PoA, PoS)
+        if self.consensus and hasattr(self.consensus, 'chain_state'):
+            self.consensus.chain_state = self.state
+            
         self.pending_transactions: List[Dict[str, Any]] = []
         self.create_genesis_block()
 
@@ -23,8 +28,14 @@ class Blockchain:
         """
         Add a transaction to the mempool.
         """
-        self.pending_transactions.append(tx)
-        print(f"Transaction added to pool: {tx}")
+        tx_copy = dict(tx)
+        sender = tx_copy.get("from", tx_copy.get("sender"))
+        if sender:
+            tx_copy["from"] = sender
+            tx_copy["sender"] = sender
+            
+        self.pending_transactions.append(tx_copy)
+        print(f"Transaction added to pool: {tx_copy}")
 
     def mine_pending_transactions(self, miner_address: str):
         if not self.pending_transactions:
@@ -92,3 +103,15 @@ class Blockchain:
         
         self.chain.append(block)
         return True
+
+    def replace_chain(self, new_chain: List[Block]):
+        """
+        Replace the current chain with a new one and replay state.
+        """
+        if not new_chain:
+            return
+            
+        self.chain = [new_chain[0]] # Keep genesis (or trust new_chain genesis)
+        self.state = {}
+        for block in new_chain[1:]:
+            self.add_block(block)

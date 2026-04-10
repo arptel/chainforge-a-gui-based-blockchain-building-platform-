@@ -4,6 +4,9 @@ class EVMRuntime(VMInterface):
     """
     Simulates the Ethereum Virtual Machine (EVM).
     """
+    def __init__(self):
+        self.contracts = {}
+
     def deploy_contract(self, code, state):
         print(f"[EVM] Deploying generic solidity verified bytecode...")
         # Placeholder for py-evm or actual runtime bytecode storage

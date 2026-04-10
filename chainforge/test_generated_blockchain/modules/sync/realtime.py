@@ -4,6 +4,7 @@ import time
 from interfaces.sync import SyncInterface
 from core.chain import Blockchain
 from interfaces.network import NetworkInterface
+from core.block import Block
 
 class RealtimeSync(SyncInterface):
     """
@@ -23,9 +24,12 @@ class RealtimeSync(SyncInterface):
                 peer = peers[0]
                 url = peer if peer.startswith("http") else f"http://{peer}"
                 try:
-                    # In a prototype, simulate WebSocket or aggressive HTTP polling
-                    # response = requests.get(f"{url}/transactions")
-                    pass
+                    response = requests.get(f"{url}/headers", timeout=3)
+                    if response.status_code == 200:
+                        headers = response.json()
+                        if len(headers) > len(self.chain.chain):
+                            blocks = [Block.from_dict(h) for h in headers]
+                            self.chain.replace_chain(blocks)
                 except Exception:
                     pass
             time.sleep(2) # Stream every 2 seconds

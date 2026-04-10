@@ -25,11 +25,17 @@ class FullSync(SyncInterface):
         print(f"[FullSync] Initiating full block download from {url}...")
         
         try:
-            # Assume peer has a /blocks endpoint
-            # Since this is a prototype, we just print the functional intent
-            # response = requests.get(f"{url}/blocks?start=0")
-            print(f"[FullSync] Downloaded 100% of historical blocks.")
-            print(f"[FullSync] Iteratively executing all historical state transitions...")
+            response = requests.get(f"{url}/blocks")
+            response.raise_for_status()
+            blocks_data = response.json()
+            blocks = [Block.from_dict(b) for b in blocks_data]
+            if len(blocks) > len(self.chain.chain):
+                print(f"[FullSync] Downloaded {len(blocks)} blocks. Applying...")
+                # Note: For prototype, replace_chain handles state replay
+                self.chain.replace_chain(blocks)
+                print(f"[FullSync] Successfully synced. Chain tip is now {self.chain.last_block.index}.")
+            else:
+                print(f"[FullSync] Peer chain is not longer than local chain.")
         except Exception as e:
             print(f"[FullSync] Sync failed: {e}")
 

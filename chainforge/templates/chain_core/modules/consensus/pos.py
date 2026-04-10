@@ -6,15 +6,14 @@ class PoSConsensus(ConsensusInterface):
     """
     Proof of Stake. Checks if block creator has token balance > 0 to validate blocks.
     """
-    def __init__(self, chain_state: dict):
-        self.chain_state = chain_state
+    def __init__(self, chain_state: dict = None):
+        self.chain_state = chain_state if chain_state is not None else {}
 
     def validate_block(self, block: Block) -> bool:
         validator = block.validator
         
-        # In this prototype, we check the global chain state for any token balance
-        # If they have any generic balance, we consider them a "staker".
-        staked_balance = self.chain_state.get(validator, 0)
+        # Check if they have stake deposited in the Staking contract
+        staked_balance = self.chain_state.get("system.staking", {}).get(validator, 0)
         
         if staked_balance > 0:
             print(f"[PoS] Block {block.index} validated. Validator {validator} has {staked_balance} staked tokens.")

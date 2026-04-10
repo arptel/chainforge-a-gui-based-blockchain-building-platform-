@@ -2,6 +2,7 @@ import requests
 from interfaces.sync import SyncInterface
 from core.chain import Blockchain
 from interfaces.network import NetworkInterface
+from core.block import Block
 
 class LightSync(SyncInterface):
     """
@@ -23,10 +24,13 @@ class LightSync(SyncInterface):
         print(f"[LightSync] Initiating header-only block download from {url}...")
         
         try:
-            # Prototype mock for grabbing block headers
-            # response = requests.get(f"{url}/headers?start=0")
-            print(f"[LightSync] Successfully downloaded historical block headers.")
-            print(f"[LightSync] Merkle roots verified. All transaction bodies ignored.")
+            response = requests.get(f"{url}/headers")
+            response.raise_for_status()
+            headers = response.json()
+            blocks = [Block.from_dict(h) for h in headers]
+            if len(blocks) > len(self.chain.chain):
+                self.chain.replace_chain(blocks)
+                print(f"[LightSync] Successfully synced {len(blocks)} header-only blocks.")
         except Exception as e:
             print(f"[LightSync] Sync failed: {e}")
 

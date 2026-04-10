@@ -6,8 +6,8 @@ class PoSConsensus(ConsensusInterface):
     """
     Proof of Stake. Checks if block creator has token balance > 0 to validate blocks.
     """
-    def __init__(self, chain_state: dict):
-        self.chain_state = chain_state
+    def __init__(self, chain_state: dict = None):
+        self.chain_state = chain_state if chain_state is not None else {}
 
     def validate_block(self, block: Block) -> bool:
         validator = block.validator

@@ -52,20 +52,22 @@ class Mempool:
         If 'nonce' is present, strict replay-attack and ordering rules apply.
         """
         with self._lock:
-            sender = tx.get("from")
+            tx_copy = dict(tx) # shallow copy
+            sender = tx_copy.get("from", tx_copy.get("sender"))
             if not sender:
-                return False, "Missing 'from' field"
+                return False, "Missing 'from' or 'sender' field"
+            tx_copy["from"] = sender
+            tx_copy["sender"] = sender
 
             # --- Nonce handling ---
-            nonce = tx.get("nonce")
+            nonce = tx_copy.get("nonce")
             expected_nonce = self.confirmed_nonces.get(sender, 0) + 1
 
             if nonce is None:
                 # Backward-compat: auto-assign the next valid nonce
                 pending_nonces = [t.get("nonce", 0) for t in self._txs if t.get("from") == sender]
                 auto_nonce = max(pending_nonces, default=self.confirmed_nonces.get(sender, 0)) + 1
-                tx = dict(tx)  # shallow copy — don't mutate caller's dict
-                tx["nonce"] = auto_nonce
+                tx_copy["nonce"] = auto_nonce
                 nonce = auto_nonce
             else:
                 # Explicit nonce — enforce strict rules
@@ -80,12 +82,12 @@ class Mempool:
                     return False, f"Nonce too far in future: got {nonce}, expected {expected_nonce}"
 
             # --- Gas fee check ---
-            gas_price = tx.get("gas_price", 0)
+            gas_price = tx_copy.get("gas_price", 0)
             if gas_price < self.min_gas_price:
                 return False, f"Gas price {gas_price} below minimum {self.min_gas_price}"
 
             # --- Add and re-sort by gas_price descending ---
-            self._txs.append(tx)
+            self._txs.append(tx_copy)
             self._txs.sort(key=lambda t: t.get("gas_price", 0), reverse=True)
 
             return True, "ok"

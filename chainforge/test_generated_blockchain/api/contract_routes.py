@@ -9,6 +9,12 @@ router = APIRouter()
 # Helper to load contracts dynamically
 contracts = {}
 
+contract_api_keys = {
+    "c1": "", # Example user contract, might not have api key mocked here
+    "sys_datastore": "sys_key_datastore",
+    "sys_governance": "sys_key_governance"
+}
+
 def load_contracts():
     sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -63,6 +69,10 @@ def set_chain(chain):
 def execute_contract(contract_id: str, method: str, args: dict = {}, x_api_key: Optional[str] = Header(None)):
     if contract_id not in contracts:
         raise HTTPException(status_code=404, detail="Contract not found")
+        
+    expected_key = contract_api_keys.get(contract_id)
+    if expected_key and x_api_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
     
     contract = contracts[contract_id]
     
@@ -72,13 +82,16 @@ def execute_contract(contract_id: str, method: str, args: dict = {}, x_api_key: 
     if chain_instance is None:
         raise HTTPException(status_code=500, detail="Blockchain instance not linked to router")
 
+    sender = args.get("from", args.get("sender", "user"))
+
     # Instead of executing directly, we create a transaction
     tx = {
         "type": "contract_call",
         "contract_id": contract_id,
         "method": method,
         "args": args,
-        "sender": "user" # Setup a real sender in production
+        "sender": sender,
+        "from": sender
     }
     
     chain_instance.add_transaction(tx)
