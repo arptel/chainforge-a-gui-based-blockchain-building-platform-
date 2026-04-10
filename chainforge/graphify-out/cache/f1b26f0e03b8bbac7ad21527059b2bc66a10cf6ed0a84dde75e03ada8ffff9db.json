@@ -1,0 +1,1 @@
+{"nodes": [{"id": "wizard", "label": "wizard.ts", "file_type": "code", "source_file": "platform-frontend\\src\\store\\wizard.ts", "source_location": "L1"}], "edges": [{"source": "wizard", "target": "zustand", "relation": "imports_from", "confidence": "EXTRACTED", "source_file": "platform-frontend\\src\\store\\wizard.ts", "source_location": "L1", "weight": 1.0}]}

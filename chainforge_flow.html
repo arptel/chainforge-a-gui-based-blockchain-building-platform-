@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChainForge Navigation Flow</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #020617;
+            --card-bg: #0f172a;
+            --primary: #6366f1;
+            --text: #f1f5f9;
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            max-width: 800px;
+        }
+        h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        p {
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        #diagram-wrapper {
+            background-color: var(--card-bg);
+            padding: 3rem;
+            border-radius: 1rem;
+            border: 1px solid #1e293b;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-width: 95vw;
+            overflow: auto;
+            position: relative;
+        }
+        .controls {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 1rem;
+        }
+        .btn {
+            background: #1e293b;
+            color: white;
+            border: 1px solid #334155;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            background: #334155;
+            border-color: #475569;
+        }
+        /* Custom Mermaid Styling override */
+        .node rect, .node circle, .node ellipse, .node polygon, .node path {
+            stroke-width: 2px !important;
+        }
+        .label {
+            font-family: 'Inter', sans-serif !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ChainForge Wizard Flow</h1>
+        <p>This diagram represents the step-by-step navigation logic within the ChainForge platform frontend. Zoom in to see full details of the configuration options.</p>
+    </div>
+
+    <div id="diagram-wrapper">
+        <pre class="mermaid">
+flowchart TD
+    A["🏠 Landing Page\n(/)"] -->|"Get Started"| B["🔐 Login\n(/login)"]
+    A -->|"(has account)"| B
+    B -->|"No account? Register"| C["📝 Register\n(/register)"]
+    C -->|"After registration"| B
+    B -->|"Authenticated"| D["📊 Dashboard\n(/dashboard)"]
+
+    D -->|"Create New Project"| STEP1
+
+    subgraph STEP1["Step 1 — Network Type & Security"]
+        S1A["🌐 Public"]
+        S1B["🔒 Permissioned"]
+        S1C["🛡️ Require Digital Signatures"]
+        S1D["🗝️ Implicit Trust (No Sigs)"]
+    end
+
+    S1A -->|"Next"| PUB_STEP2
+    S1B -->|"Next"| PERM_STEP2
+
+    %% ─────────────────────────────────────────
+    %% PUBLIC PATH (8 steps total)
+    %% ─────────────────────────────────────────
+    subgraph PUB_STEP2["Step 2 — Consensus Mechanism (Public)"]
+        P2A["⛏️ Proof of Work"]
+        P2B["✅ Proof of Authority"]
+        P2C["🪙 Proof of Stake"]
+    end
+    PUB_STEP2 -->|"Next"| PUB_STEP3
+
+    subgraph PUB_STEP3["Step 3 — Smart Contract Runtime (Public)"]
+        P3A["📦 WASM Runtime"]
+        P3B["🔷 EVM Compatible"]
+    end
+    PUB_STEP3 -->|"Next"| PUB_STEP4
+
+    subgraph PUB_STEP4["Step 4 — Synchronization Mode (Public)"]
+        P4A["🗄️ Full Sync"]
+        P4B["⚡ Fast Sync"]
+        P4C["💡 Light Sync"]
+    end
+    PUB_STEP4 -->|"Next"| PUB_STEP5
+
+    subgraph PUB_STEP5["Step 5 — Network Economy / Token (Public)"]
+        P5A["🪙 Native Token"]
+        P5B["🔒 No Token"]
+    end
+    PUB_STEP5 -->|"Next"| PUB_STEP6
+
+    subgraph PUB_STEP6["Step 6 — Gas & Transaction Fees (Public)"]
+        P6A["💰 Enable Gas Fees"]
+        P6B["⚡ Gasless (Free)"]
+    end
+    PUB_STEP6 -->|"Next"| PUB_STEP7
+
+    subgraph PUB_STEP7["Step 7 — Smart Contracts (Public)"]
+        P7A["📄 Add / Configure Contracts (optional)"]
+    end
+    PUB_STEP7 -->|"Next"| PUB_REVIEW
+
+    PUB_REVIEW["✅ Step 8 — Review & Create (Public)"] -->|"Create & Generate"| D2
+
+    %% ─────────────────────────────────────────
+    %% PERMISSIONED PATH
+    %% ─────────────────────────────────────────
+    subgraph PERM_STEP2["Step 2 — Governance Model (Permissioned)"]
+        Q2A["🏛️ Centralized"]
+        Q2B["🏢 Consortium"]
+    end
+
+    Q2A -->|"Next"| CENT_STEP3
+    Q2B -->|"Next"| CONS_STEP3
+
+    %% ── CENTRALIZED branch ──
+    subgraph CENT_STEP3["Step 3 — Central Authority Structure"]
+        C3A["👑 Fixed Leader"]
+        C3B["🔄 Rotating Leader"]
+    end
+    CENT_STEP3 -->|"Next"| CENT_STEP4
+
+    subgraph CENT_STEP4["Step 4 — Consensus Algorithm (Centralized)"]
+        C4A["🗄️ Raft (CFT)"]
+        C4B["📄 Paxos (CFT)"]
+        C4C["📝 None (Single-Writer)"]
+    end
+    CENT_STEP4 -->|"Next"| CENT_STEP5
+
+    subgraph CENT_STEP5["Step 5 — Access Control (Centralized)"]
+        C5A["🔑 Role-Based (RBAC)"]
+        C5B["📋 Certificate Whitelist"]
+    end
+    CENT_STEP5 -->|"Next"| CENT_STEP6
+
+    subgraph CENT_STEP6["Step 6 — Replication Mode (Centralized)"]
+        C6A["⏱️ Real-Time"]
+        C6B["📷 Snapshot"]
+        C6C["📦 Batch"]
+    end
+    CENT_STEP6 -->|"Next"| PERM_STEP7
+
+    %% ── CONSORTIUM branch ──
+    subgraph CONS_STEP3["Step 3 — Validator Structure (Consortium)"]
+        D3A["⚖️ Equal Validators"]
+        D3B["👑 Weighted Validators"]
+    end
+    CONS_STEP3 -->|"Next"| CONS_STEP4
+
+    subgraph CONS_STEP4["Step 4 — BFT Consensus (Consortium)"]
+        D4A["🌐 PBFT"]
+        D4B["⚡ HotStuff"]
+        D4C["🔮 Tendermint"]
+    end
+    CONS_STEP4 -->|"Next"| CONS_STEP5
+
+    subgraph CONS_STEP5["Step 5 — Member Identity (Consortium)"]
+        D5A["✅ Certificate Authority (CA)"]
+        D5B["🤝 Multi-Sig Approval"]
+    end
+    CONS_STEP5 -->|"Next"| CONS_STEP6
+
+    subgraph CONS_STEP6["Step 6 — Synchronization (Consortium)"]
+        D6A["🗄️ Full State"]
+        D6B["📷 Snapshot"]
+        D6C["💡 Light (SPV)"]
+    end
+    CONS_STEP6 -->|"Next"| PERM_STEP7
+
+    %% ── Shared tail of Permissioned path ──
+    subgraph PERM_STEP7["Step 7 — Gas & Transaction Fees (Permissioned)"]
+        G1["💰 Enable Gas Fees"]
+        G2["⚡ Gasless (Free)"]
+    end
+    PERM_STEP7 -->|"Next"| PERM_STEP8
+
+    subgraph PERM_STEP8["Step 8 — Smart Contracts (Permissioned)"]
+        SC["📄 Add / Configure Contracts (optional)"]
+    end
+    PERM_STEP8 -->|"Next"| PERM_REVIEW
+
+    PERM_REVIEW["✅ Step 9 — Review & Create (Permissioned)"] -->|"Create & Generate"| D2
+
+    D2["📊 Dashboard\n(/dashboard)\n(project now listed)"] -->|"Open Project"| PROJ["🔍 Project Detail\n(/projects/{id})"]
+
+    %% Style
+    classDef page fill:#1e293b,stroke:#6366f1,color:#f1f5f9,rx:8
+    classDef action fill:#0f172a,stroke:#22d3ee,color:#f1f5f9,rx:4
+    class A,B,C,D,D2,PROJ,PUB_REVIEW,PERM_REVIEW page
+        </pre>
+    </div>
+
+    <div class="controls">
+        <button class="btn" onclick="window.print()">Save as PDF / Print</button>
+        <button class="btn" onclick="location.reload()">Reset View</button>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'dark',
+            securityLevel: 'loose',
+            flowchart: { 
+                useMaxWidth: false, 
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+</html>
