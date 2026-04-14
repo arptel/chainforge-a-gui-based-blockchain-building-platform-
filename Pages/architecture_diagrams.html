@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChainForge — Architecture Graphs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0c15;
+      --surface: rgba(22, 24, 45, 0.75);
+      --surface-deep: #0b0c15;
+      --border: rgba(46, 48, 80, 0.5);
+      --cyan: #22d3ee;
+      --purple: #a78bfa;
+      --text: #ffffff;
+      --text-dim: #94a3b8;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      /* FIGMA STYLE DOT GRID BACKGROUND */
+      background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 0);
+      background-size: 32px 32px;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+    
+    .main-content {
+      flex: 1;
+      height: 100vh;
+      position: relative;
+      /* Soft vignette for depth */
+      background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.5) 100%);
+    }
+    
+    #graphCanvas {
+      width: 100%; height: 100%;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+    }
+    #graphCanvas.visible {
+      opacity: 1;
+    }
+    
+    .sidebar {
+      width: 280px;
+      height: 100vh;
+      background: var(--surface);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      box-shadow: -15px 0 45px rgba(0,0,0,0.6);
+      z-index: 10;
+    }
+
+    .sidebar-header {
+      padding: 2.2rem 1.5rem 1rem;
+    }
+    .sidebar-header h1 {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #fff;
+    }
+    .sidebar-header p {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--cyan);
+      margin-top: 6px;
+      font-weight: 700;
+    }
+
+    .tabs {
+      display: flex; flex-direction: column; gap: 0.6rem;
+      padding: 1.5rem 1rem;
+    }
+    .tabs button {
+      background: rgba(255,255,255,0.03); color: var(--text-dim);
+      border: 1px solid transparent; padding: 0.8rem 1.2rem;
+      border-radius: 12px; cursor: pointer; font-family: inherit;
+      font-size: 0.85rem; font-weight: 600; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      text-align: left;
+    }
+    .tabs button:hover { 
+      background: rgba(255,255,255,0.08); 
+      color: var(--text);
+      transform: translateX(4px);
+    }
+    .tabs button.active {
+      background: rgba(34,211,238,0.15);
+      border-color: rgba(34,211,238,0.4); 
+      color: var(--cyan);
+      box-shadow: 0 0 20px rgba(34,211,238,0.1);
+    }
+
+    .legend {
+      margin-top: auto;
+      padding: 1.5rem 1.2rem;
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,0.2);
+    }
+    .legend-title {
+      font-size: 0.7rem; margin-bottom: 15px;
+      color: var(--text-dim); font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 12px;
+      margin: 10px 0; color: var(--text-dim);
+      font-weight: 500;
+    }
+    .legend-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  
+  <div class="main-content">
+    <div id="graphCanvas"></div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>ChainForge</h1>
+      <p>Architecture Graphs</p>
+    </div>
+    <div class="tabs" id="tabBar">
+      <button class="active" onclick="showGraph(0)">Node Startup Wiring</button>
+      <button onclick="showGraph(1)">Consensus ↔ Contracts</button>
+      <button onclick="showGraph(2)">TX Execution Pipeline</button>
+      <button onclick="showGraph(3)">P2P Message Router</button>
+      <button onclick="showGraph(4)">Contract Registry</button>
+      <button onclick="showGraph(5)">Full System Overview</button>
+    </div>
+
+    <div class="legend" id="legend">
+      <div class="legend-title">Entity Types</div>
+    </div>
+  </div>
+
+  <script>
+  // ========== COLOR PALETTE (PRIMARY RGB COLORS) ==========
+  const C = {
+    core:      { bg: '#3b82f6' }, // Blue
+    consensus: { bg: '#f97316' }, // Orange
+    contract:  { bg: '#ef4444' }, // Red
+    network:   { bg: '#a855f7' }, // Purple
+    sync:      { bg: '#06b6d4' }, // Cyan
+    vm:        { bg: '#22c55e' }, // Green
+    state:     { bg: '#eab308' }, // Yellow
+    api:       { bg: '#ec4899' }, // Pink
+    config:    { bg: '#9ca3af' }, // Gray
+    builder:   { bg: '#8b5cf6' }, // Violet
+    sdk:       { bg: '#f43f5e' }, // Rose
+    file:      { bg: '#84cc16' }, // Lime
+  };
+
+  function mkNode(id, label, group, size = 22) {
+    const c = C[group] || C.core;
+    size = size * 1.25;
+    return {
+      id, label, group,
+      size,
+      shape: 'dot',
+      color: {
+        background: c.bg,
+        border: c.bg,
+        hover: { background: c.bg, border: '#ffffff' },
+        highlight: { background: c.bg, border: '#ffffff' }
+      },
+      font: {
+        color: '#ffffff',
+        size: 15,
+        face: 'Inter',
+        vadjust: 14,
+        strokeWidth: 4,
+        strokeColor: '#0b0c15'
+      },
+      borderWidth: 0,
+      shadow: {
+        enabled: false
+      }
+    };
+  }
+
+  function mkEdge(from, to, label = '', dashes = false) {
+    return {
+      from, to, label,
+      font: { 
+        color: '#ffffff', 
+        size: 11, 
+        face: 'Inter', 
+        strokeWidth: 3, 
+        strokeColor: '#0b0c15', 
+        align: 'middle' 
+      },
+      arrows: { to: { enabled: true, scaleFactor: 0.5, type: 'arrow' } },
+      dashes,
+      smooth: { type: 'curvedCW', roundness: 0.25 },
+      width: 3.5,
+      hoverWidth: 1,
+      selectionWidth: 1
+    };
+  }
+
+  // ========== GRAPH DEFINITIONS ==========
+  const graphs = [
+
+    // 0: Node Startup Wiring (DI)
+    {
+      legend: [
+        { color: C.config.bg, label: 'Configuration' },
+        { color: C.core.bg, label: 'Core Engine' },
+        { color: C.consensus.bg, label: 'Consensus' },
+        { color: C.vm.bg, label: 'Runtime / VM' },
+        { color: C.network.bg, label: 'Network' },
+        { color: C.sync.bg, label: 'Sync' },
+        { color: C.api.bg, label: 'API Server' },
+      ],
+      nodes: [
+        mkNode('main', 'main.py', 'core', 30),
+        mkNode('di', 'DependencyInjector', 'core', 45),
+        mkNode('genesis', 'genesis.json', 'config', 20),
+
+        mkNode('pow', 'PoW', 'consensus', 16),
+        mkNode('pbft', 'PBFT', 'consensus', 16),
+        mkNode('poa', 'PoA', 'consensus', 16),
+        mkNode('pos', 'PoS', 'consensus', 16),
+        mkNode('raft', 'Raft', 'consensus', 14),
+        mkNode('paxos', 'Paxos', 'consensus', 14),
+        mkNode('hotstuff', 'HotStuff', 'consensus', 14),
+        mkNode('tendermint', 'Tendermint', 'consensus', 14),
+
+        mkNode('pythonvm', 'PythonVM', 'vm', 18),
+        mkNode('evm', 'EVMRuntime', 'vm', 16),
+        mkNode('wasm', 'WASMRuntime', 'vm', 16),
+
+        mkNode('p2p', 'P2PNetwork', 'network', 22),
+
+        mkNode('fullsync', 'FullSync', 'sync', 16),
+        mkNode('fastsync', 'FastSync', 'sync', 16),
+        mkNode('lightsync', 'LightSync', 'sync', 16),
+        mkNode('realtime', 'RealtimeSync', 'sync', 14),
+
+        mkNode('chain', 'Blockchain', 'core', 28),
+        mkNode('server', 'FastAPI Server', 'api', 22),
+      ],
+      edges: [
+        mkEdge('main', 'genesis', 'loads'),
+        mkEdge('genesis', 'di', 'config dict'),
+        mkEdge('main', 'di', 'creates'),
+
+        mkEdge('di', 'pow', 'resolves'), mkEdge('di', 'pbft', 'resolves'),
+        mkEdge('di', 'poa', 'resolves'), mkEdge('di', 'pos', 'resolves'),
+        mkEdge('di', 'raft', ''), mkEdge('di', 'paxos', ''),
+        mkEdge('di', 'hotstuff', ''), mkEdge('di', 'tendermint', ''),
+
+        mkEdge('di', 'pythonvm', 'resolves'), mkEdge('di', 'evm', 'resolves'),
+        mkEdge('di', 'wasm', 'resolves'),
+        mkEdge('evm', 'pythonvm', 'fallback', true),
+        mkEdge('wasm', 'pythonvm', 'fallback', true),
+
+        mkEdge('di', 'p2p', 'resolves'),
+
+        mkEdge('di', 'fullsync', 'resolves'), mkEdge('di', 'fastsync', 'resolves'),
+        mkEdge('di', 'lightsync', 'resolves'), mkEdge('di', 'realtime', 'resolves'),
+
+        mkEdge('main', 'chain', 'creates'),
+        mkEdge('chain', 'server', 'passed to'),
+        mkEdge('p2p', 'chain', 'set_chain()'),
+        mkEdge('p2p', 'fullsync', 'set_sync_module()'),
+      ]
+    },
+
+    // 1: Consensus <-> Contracts (via chain.state)
+    {
+      legend: [
+        { color: C.contract.bg, label: 'System Contracts (Writers)' },
+        { color: C.state.bg, label: 'chain.state Keys' },
+        { color: C.consensus.bg, label: 'Consensus (Readers)' },
+        { color: C.network.bg, label: 'Network (Reader)' },
+      ],
+      nodes: [
+        mkNode('am', 'AuthorityManagement', 'contract', 22),
+        mkNode('staking', 'Staking', 'contract', 22),
+        mkNode('wl', 'Whitelist', 'contract', 20),
+        mkNode('ac', 'AdminControl', 'contract', 20),
+        mkNode('nattoken', 'NativeToken', 'contract', 18),
+        mkNode('mining', 'MiningReward', 'contract', 18),
+        mkNode('velect', 'ValidatorElection', 'contract', 18),
+
+        mkNode('s_auth', 'system.authorities', 'state', 20),
+        mkNode('s_stake', 'system.staking', 'state', 20),
+        mkNode('s_wl', 'system.whitelist', 'state', 18),
+        mkNode('s_admin', 'system.admin', 'state', 18),
+        mkNode('s_bal', 'balances', 'state', 16),
+
+        mkNode('poa', 'PoA Consensus', 'consensus', 24),
+        mkNode('pos', 'PoS Consensus', 'consensus', 24),
+        mkNode('p2p', 'P2P Network', 'network', 22),
+      ],
+      edges: [
+        mkEdge('am', 's_auth', 'writes'),
+        mkEdge('staking', 's_stake', 'writes'),
+        mkEdge('wl', 's_wl', 'writes'),
+        mkEdge('ac', 's_admin', 'writes'),
+        mkEdge('nattoken', 's_bal', 'writes'),
+        mkEdge('mining', 's_bal', 'writes'),
+        mkEdge('velect', 's_stake', 'reads', true),
+        mkEdge('s_auth', 'poa', 'reads'),
+        mkEdge('s_stake', 'pos', 'reads'),
+        mkEdge('s_wl', 'p2p', 'reads'),
+        mkEdge('s_admin', 'am', 'checks', true),
+        mkEdge('s_admin', 'ac', 'checks', true),
+      ]
+    },
+
+    // 2: Transaction Execution Pipeline
+    {
+      legend: [
+        { color: C.sdk.bg, label: 'Client / SDK' },
+        { color: C.api.bg, label: 'API Layer' },
+        { color: C.core.bg, label: 'Core Engine' },
+        { color: C.vm.bg, label: 'VM Execution' },
+        { color: C.state.bg, label: 'State' },
+      ],
+      nodes: [
+        mkNode('user', 'User App', 'sdk', 18),
+        mkNode('sdk', 'SDK Client', 'sdk', 22),
+        mkNode('sign', 'Crypto Sign', 'sdk', 16),
+        mkNode('route', 'Contract Route', 'api', 22),
+        mkNode('apikey', 'API Key Check', 'api', 16),
+        mkNode('mempool', 'Mempool', 'core', 24),
+        mkNode('nonce', 'Nonce Validation', 'core', 16),
+        mkNode('gas_check', 'Gas Price Check', 'core', 16),
+        mkNode('mine', 'mine_pending_txs()', 'core', 22),
+        mkNode('consensus', 'Consensus', 'consensus', 22),
+        mkNode('vm', 'PythonVM', 'vm', 24),
+        mkNode('ast', 'AST Sandbox', 'vm', 16),
+        mkNode('gasmeter', 'Gas Meter', 'vm', 16),
+        mkNode('state', 'chain.state', 'state', 24),
+        mkNode('block', 'New Block', 'core', 22),
+        mkNode('broadcast', 'P2P Broadcast', 'network', 20),
+      ],
+      edges: [
+        mkEdge('user', 'sdk', 'calls'),
+        mkEdge('sdk', 'sign', 'private key'),
+        mkEdge('sign', 'route', 'HTTP POST'),
+        mkEdge('route', 'apikey', 'validates'),
+        mkEdge('apikey', 'mempool', 'tx dict'),
+        mkEdge('mempool', 'nonce', 'checks'),
+        mkEdge('mempool', 'gas_check', 'checks'),
+        mkEdge('mempool', 'mine', 'pending txs'),
+        mkEdge('mine', 'consensus', 'propose_block()'),
+        mkEdge('consensus', 'mine', 'block'),
+        mkEdge('mine', 'vm', 'execute each tx'),
+        mkEdge('vm', 'ast', 'validate code'),
+        mkEdge('vm', 'gasmeter', 'count steps'),
+        mkEdge('vm', 'state', 'read/write'),
+        mkEdge('mine', 'block', 'finalize'),
+        mkEdge('block', 'broadcast', 'gossip'),
+      ]
+    },
+
+    // 3: P2P Message Router
+    {
+      legend: [
+        { color: C.network.bg, label: 'Network Layer' },
+        { color: C.core.bg, label: 'Chain Operations' },
+        { color: C.sync.bg, label: 'Sync Module' },
+        { color: C.consensus.bg, label: 'Consensus Protocol' },
+      ],
+      nodes: [
+        mkNode('ws', 'WebSocket Message', 'network', 26),
+        mkNode('router', 'Message Router', 'network', 28),
+
+        mkNode('peer_disc', 'PEER_DISCOVERY', 'network', 18),
+        mkNode('new_block', 'NEW_BLOCK', 'core', 20),
+        mkNode('new_tx', 'NEW_TRANSACTION', 'core', 18),
+        mkNode('sync_req', 'SYNC_REQUEST', 'sync', 20),
+        mkNode('sync_resp', 'SYNC_RESPONSE', 'sync', 20),
+        mkNode('pbft_msg', 'PBFT_* Messages', 'consensus', 20),
+        mkNode('paxos_msg', 'PAXOS_* Messages', 'consensus', 18),
+
+        mkNode('connect', 'connect_to_peer()', 'network', 16),
+        mkNode('gossip', 'broadcast_node_address()', 'network', 16),
+        mkNode('add_block', 'chain.add_block()', 'core', 18),
+        mkNode('gap', 'Gap Detection', 'sync', 16),
+        mkNode('add_tx', 'chain.add_transaction()', 'core', 16),
+        mkNode('serve', 'Serve Missing Blocks', 'sync', 16),
+        mkNode('fork', 'Fork Resolution', 'sync', 18),
+        mkNode('handle_cons', 'handle_consensus_message()', 'consensus', 16),
+        mkNode('rebroadcast', 'Re-broadcast Block', 'network', 16),
+      ],
+      edges: [
+        mkEdge('ws', 'router', 'JSON parse'),
+        mkEdge('router', 'peer_disc', ''),
+        mkEdge('router', 'new_block', ''),
+        mkEdge('router', 'new_tx', ''),
+        mkEdge('router', 'sync_req', ''),
+        mkEdge('router', 'sync_resp', ''),
+        mkEdge('router', 'pbft_msg', ''),
+        mkEdge('router', 'paxos_msg', ''),
+
+        mkEdge('peer_disc', 'connect', ''),
+        mkEdge('peer_disc', 'gossip', ''),
+        mkEdge('new_block', 'gap', 'if index gap'),
+        mkEdge('new_block', 'add_block', 'if next block'),
+        mkEdge('add_block', 'rebroadcast', 'gossip'),
+        mkEdge('new_tx', 'add_tx', ''),
+        mkEdge('sync_req', 'serve', ''),
+        mkEdge('sync_resp', 'fork', ''),
+        mkEdge('pbft_msg', 'handle_cons', ''),
+        mkEdge('paxos_msg', 'handle_cons', ''),
+      ]
+    },
+
+    // 4: Contract Registry
+    {
+      legend: [
+        { color: C.config.bg, label: 'User Config' },
+        { color: C.builder.bg, label: 'Builder' },
+        { color: C.vm.bg, label: 'Base Contracts (Always)' },
+        { color: C.consensus.bg, label: 'Consensus Contracts' },
+        { color: C.contract.bg, label: 'Network Contracts' },
+        { color: C.state.bg, label: 'Feature Contracts' },
+      ],
+      nodes: [
+        mkNode('cfg', 'User Config', 'config', 24),
+        mkNode('builder', 'builder.py', 'builder', 26),
+        mkNode('registry', 'Contract_registry.py', 'builder', 22),
+
+        mkNode('datastore', 'DataStore', 'vm', 16),
+        mkNode('validation', 'Validation', 'vm', 16),
+        mkNode('accessctrl', 'AccessControl', 'vm', 16),
+        mkNode('identity', 'IdentityRegistry', 'vm', 16),
+        mkNode('audit', 'AuditLog', 'vm', 16),
+
+        mkNode('mreward', 'MiningReward', 'consensus', 16),
+        mkNode('authm', 'AuthorityMgmt', 'consensus', 16),
+        mkNode('stk', 'Staking', 'consensus', 16),
+        mkNode('velect', 'ValidatorElection', 'consensus', 16),
+
+        mkNode('part', 'Participation', 'contract', 16),
+        mkNode('admctl', 'AdminControl', 'contract', 16),
+        mkNode('white', 'Whitelist', 'contract', 16),
+        mkNode('valcncl', 'ValidatorCouncil', 'contract', 16),
+        mkNode('msig', 'MultiSig', 'contract', 16),
+        mkNode('ca', 'CertificateAuthority', 'contract', 16),
+
+        mkNode('ntkn', 'NativeToken', 'state', 16),
+        mkNode('pv', 'ProofVerifier', 'state', 16),
+
+        mkNode('zip', 'Generated Node', 'file', 24),
+      ],
+      edges: [
+        mkEdge('cfg', 'builder', 'config'),
+        mkEdge('builder', 'registry', 'lookups'),
+        mkEdge('registry', 'datastore', 'always'),
+        mkEdge('registry', 'validation', 'always'),
+        mkEdge('registry', 'accessctrl', 'always'),
+        mkEdge('registry', 'identity', 'always'),
+        mkEdge('registry', 'audit', 'always'),
+        mkEdge('registry', 'mreward', 'if pow'),
+        mkEdge('registry', 'authm', 'if poa'),
+        mkEdge('registry', 'stk', 'if pos'),
+        mkEdge('registry', 'velect', 'if pos'),
+        mkEdge('registry', 'part', 'if public'),
+        mkEdge('registry', 'admctl', 'if centralized'),
+        mkEdge('registry', 'white', 'if centralized'),
+        mkEdge('registry', 'valcncl', 'if consortium'),
+        mkEdge('registry', 'msig', 'if consortium'),
+        mkEdge('registry', 'ca', 'if consortium'),
+        mkEdge('registry', 'ntkn', 'if native token'),
+        mkEdge('registry', 'pv', 'if light sync'),
+        mkEdge('datastore', 'zip', ''), mkEdge('validation', 'zip', ''),
+        mkEdge('accessctrl', 'zip', ''), mkEdge('identity', 'zip', ''),
+        mkEdge('audit', 'zip', ''),
+        mkEdge('mreward', 'zip', '', true), mkEdge('authm', 'zip', '', true),
+        mkEdge('stk', 'zip', '', true), mkEdge('velect', 'zip', '', true),
+        mkEdge('part', 'zip', '', true),
+        mkEdge('admctl', 'zip', '', true), mkEdge('white', 'zip', '', true),
+        mkEdge('valcncl', 'zip', '', true), mkEdge('msig', 'zip', '', true),
+        mkEdge('ca', 'zip', '', true),
+        mkEdge('ntkn', 'zip', '', true), mkEdge('pv', 'zip', '', true),
+      ]
+    },
+
+    // 5: Full System Overview
+    {
+      legend: [
+        { color: C.core.bg, label: 'Core' },
+        { color: C.consensus.bg, label: 'Consensus' },
+        { color: C.vm.bg, label: 'VM / Runtime' },
+        { color: C.network.bg, label: 'Network' },
+        { color: C.sync.bg, label: 'Sync' },
+        { color: C.contract.bg, label: 'Smart Contracts' },
+        { color: C.api.bg, label: 'API' },
+        { color: C.sdk.bg, label: 'SDK' },
+        { color: C.builder.bg, label: 'Builder / Generator' },
+      ],
+      nodes: [
+        mkNode('blockchain', 'Blockchain', 'core', 32),
+        mkNode('block', 'Block', 'core', 24),
+        mkNode('mempool', 'Mempool', 'core', 22),
+        mkNode('merkle', 'Merkle Tree', 'core', 18),
+        mkNode('crypto', 'Crypto', 'core', 18),
+        mkNode('persist', 'Persistence', 'core', 18),
+
+        mkNode('pow', 'PoW', 'consensus', 18),
+        mkNode('pbft', 'PBFT', 'consensus', 18),
+        mkNode('poa', 'PoA', 'consensus', 18),
+        mkNode('pos', 'PoS', 'consensus', 18),
+        mkNode('raft', 'Raft', 'consensus', 14),
+        mkNode('paxos', 'Paxos', 'consensus', 14),
+        mkNode('tendermint', 'Tendermint', 'consensus', 14),
+        mkNode('hotstuff', 'HotStuff', 'consensus', 14),
+
+        mkNode('pythonvm', 'PythonVM', 'vm', 22),
+        mkNode('evm', 'EVM', 'vm', 16),
+        mkNode('wasm', 'WASM', 'vm', 16),
+
+        mkNode('p2p', 'P2P Network', 'network', 24),
+
+        mkNode('full', 'Full Sync', 'sync', 16),
+        mkNode('fast', 'Fast Sync', 'sync', 16),
+        mkNode('light', 'Light Sync', 'sync', 16),
+        mkNode('rt', 'Realtime', 'sync', 14),
+
+        mkNode('admin', 'AdminControl', 'contract', 14),
+        mkNode('staking', 'Staking', 'contract', 14),
+        mkNode('auth_mgmt', 'AuthorityMgmt', 'contract', 14),
+        mkNode('native_tok', 'NativeToken', 'contract', 14),
+        mkNode('whitelist', 'Whitelist', 'contract', 14),
+        mkNode('cert_auth', 'CertificateAuthority', 'contract', 14),
+        mkNode('datastore', 'DataStore', 'contract', 12),
+        mkNode('access', 'AccessControl', 'contract', 12),
+        mkNode('auditlog', 'AuditLog', 'contract', 12),
+
+        mkNode('server', 'FastAPI', 'api', 20),
+        mkNode('routes', 'Contract Routes', 'api', 16),
+
+        mkNode('pysdk', 'Python SDK', 'sdk', 16),
+        mkNode('jssdk', 'JS SDK', 'sdk', 16),
+
+        mkNode('builder', 'Builder', 'builder', 24),
+        mkNode('transpiler', 'Gemini Transpiler', 'builder', 18),
+        mkNode('di', 'DI Container', 'builder', 18),
+      ],
+      edges: [
+        mkEdge('blockchain', 'block', ''),
+        mkEdge('blockchain', 'mempool', ''),
+        mkEdge('block', 'merkle', 'tx root'),
+        mkEdge('blockchain', 'persist', 'save/load'),
+        mkEdge('pow', 'blockchain', ''), mkEdge('pbft', 'blockchain', ''),
+        mkEdge('poa', 'blockchain', ''), mkEdge('pos', 'blockchain', ''),
+        mkEdge('raft', 'blockchain', ''), mkEdge('paxos', 'blockchain', ''),
+        mkEdge('tendermint', 'blockchain', ''), mkEdge('hotstuff', 'blockchain', ''),
+        mkEdge('pythonvm', 'blockchain', ''),
+        mkEdge('evm', 'blockchain', '', true),
+        mkEdge('wasm', 'blockchain', '', true),
+        mkEdge('p2p', 'blockchain', ''),
+        mkEdge('p2p', 'full', ''), mkEdge('p2p', 'fast', ''),
+        mkEdge('p2p', 'light', ''), mkEdge('p2p', 'rt', ''),
+        mkEdge('p2p', 'pbft', 'consensus msgs'),
+        mkEdge('pythonvm', 'admin', ''), mkEdge('pythonvm', 'staking', ''),
+        mkEdge('pythonvm', 'auth_mgmt', ''), mkEdge('pythonvm', 'native_tok', ''),
+        mkEdge('pythonvm', 'whitelist', ''), mkEdge('pythonvm', 'cert_auth', ''),
+        mkEdge('pythonvm', 'datastore', ''), mkEdge('pythonvm', 'access', ''),
+        mkEdge('pythonvm', 'auditlog', ''),
+        mkEdge('server', 'blockchain', ''),
+        mkEdge('server', 'routes', ''),
+        mkEdge('server', 'p2p', 'WebSocket'),
+        mkEdge('routes', 'mempool', 'add tx'),
+        mkEdge('pysdk', 'routes', 'HTTP'),
+        mkEdge('jssdk', 'routes', 'HTTP'),
+        mkEdge('crypto', 'pysdk', 'signing'),
+        mkEdge('builder', 'transpiler', 'Solidity→Python'),
+        mkEdge('builder', 'routes', 'generates'),
+        mkEdge('builder', 'pysdk', 'generates'),
+        mkEdge('builder', 'jssdk', 'generates'),
+        mkEdge('builder', 'server', 'generates'),
+        mkEdge('di', 'pow', ''), mkEdge('di', 'pythonvm', ''),
+        mkEdge('di', 'p2p', ''), mkEdge('di', 'full', ''),
+      ]
+    }
+  ];
+
+  let network = null;
+  const container = document.getElementById('graphCanvas');
+
+  const defaultOptions = {
+    physics: {
+      solver: 'forceAtlas2Based',
+      forceAtlas2Based: {
+        gravitationalConstant: -400,
+        centralGravity: 0.015,
+        springLength: 260,
+        springConstant: 0.05,
+        damping: 0.9,
+        avoidOverlap: 1.0 
+      },
+      stabilization: { iterations: 150 }
+    },
+    interaction: {
+      hover: true,
+      tooltipDelay: 100,
+      zoomView: true,
+      dragNodes: true,
+    },
+    nodes: {
+      shape: 'dot',
+      scaling: { min: 15, max: 60 },
+    },
+    edges: {
+      smooth: { type: 'curvedCW', roundness: 0.2 },
+      width: 3.5
+    },
+    layout: { randomSeed: 42 },
+  };
+
+  function showGraph(idx) {
+    // Reveal animation
+    container.classList.remove('visible');
+    
+    setTimeout(() => {
+      // Update tabs
+      document.querySelectorAll('.tabs button').forEach((b, i) => b.classList.toggle('active', i === idx));
+
+      const g = graphs[idx];
+
+      // Render legend
+      const legendEl = document.getElementById('legend');
+      legendEl.innerHTML = `<div class="legend-title">Entity Types</div>` +
+        g.legend.map(l => `<div class="legend-item"><div class="legend-dot" style="background:${l.color}; color:${l.color}"></div>${l.label}</div>`).join('');
+
+      // Edge coloring
+      const nodeColors = {};
+      g.nodes.forEach(n => nodeColors[n.id] = (C[n.group] || C.core).bg);
+      
+      g.edges.forEach(e => {
+        const cFrom = nodeColors[e.from] || '#ffffff';
+        const cTo = nodeColors[e.to] || cFrom;
+        const chosenColor = Math.random() > 0.5 ? cFrom : cTo;
+        e.color = { color: chosenColor, hover: '#ffffff', highlight: '#ffffff', opacity: 0.8 };
+      });
+
+      if (network) network.destroy();
+      const data = { nodes: new vis.DataSet(g.nodes), edges: new vis.DataSet(g.edges) };
+      network = new vis.Network(container, data, defaultOptions);
+      
+      network.once('stabilizationIterationsDone', () => {
+        network.setOptions({ physics: { enabled: false } });
+        container.classList.add('visible');
+      });
+    }, 200);
+  }
+
+  // Initial render
+  showGraph(0);
+  </script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChainForge — Architecture Flow Diagrams</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a1a;
+      --surface: #12122a;
+      --surface2: #1a1a3a;
+      --border: #2a2a5a;
+      --text: #e8e8f0;
+      --muted: #8888aa;
+      --blue: #6366f1;
+      --cyan: #22d3ee;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+      --purple: #a78bfa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; }
+    .topbar { background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%); border-bottom: 1px solid var(--border); padding: 32px 40px 0; position: sticky; top: 0; z-index: 100; }
+    .topbar-inner { max-width: 1200px; margin: auto; }
+    .brand { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--cyan); margin-bottom: 4px; }
+    .page-title { font-size: 26px; font-weight: 800; margin-bottom: 20px; background: linear-gradient(135deg, #fff, var(--muted)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .tabs { display: flex; gap: 4px; overflow-x: auto; }
+    .tab { height: 42px; padding: 0 18px; border: none; background: transparent; color: var(--muted); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; transition: all .25s ease; white-space: nowrap; position: relative; bottom: -1px; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+    .main { max-width: 1200px; margin: 0 auto; padding: 40px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .section-header { margin-bottom: 24px; }
+    .section-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+    .section-desc { font-size: 14px; color: var(--muted); line-height: 1.6; max-width: 800px; }
+    .section-desc strong { color: var(--cyan); }
+    .diagram-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; overflow-x: auto; box-shadow: 0 20px 60px -15px rgba(0,0,0,0.5); margin-bottom: 32px; }
+    .diagram-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; overflow-x: auto; box-shadow: 0 20px 60px -15px rgba(0,0,0,0.5); margin-bottom: 32px; }
+    @media print { .topbar { position: static; } .tabs { display: none; } .panel { display: block !important; page-break-after: always; } body { background: white; color: black; } }
+    @media print { .topbar { position: static; } .tabs { display: none; } .panel { display: block !important; page-break-after: always; } body { background: white; color: black; } }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">CHAINFORGE · ARCHITECTURE</div>
+    <div class="page-title">Flow Diagrams</div>
+    <div class="tabs">
+      <button class="tab active" data-panel="gen">Code Generation</button>
+      <button class="tab" data-panel="node">Node Architecture</button>
+      <button class="tab" data-panel="tx">TX Lifecycle</button>
+      <button class="tab" data-panel="pbft">PBFT Consensus</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- TAB 1: CODE GENERATION PIPELINE -->
+  <div class="panel active" id="panel-gen">
+    <div class="section-header">
+      <div class="section-title">Code Generation</div>
+      <div class="section-desc">When the user clicks <strong>Download</strong>, the builder reads the project config, walks the template directory, filters modules by config, transpiles Solidity contracts via LLM, and produces a self-contained ZIP.</div>
+    </div>
+    <div class="diagram-card" id="dia-gen"></div>
+  </div>
+
+  <!-- TAB 2: NODE INTERNAL ARCHITECTURE -->
+  <div class="panel" id="panel-node">
+    <div class="section-header">
+      <div class="section-title">Node Architecture</div>
+      <div class="section-desc">When you run <code>python main.py</code>, the Dependency Injector reads <strong>genesis.json</strong> and wires together the correct consensus, sync, VM, and network modules.</div>
+    </div>
+    <div class="diagram-card" id="dia-node"></div>
+  </div>
+
+  <!-- TAB 3: TRANSACTION LIFECYCLE -->
+  <div class="panel" id="panel-tx">
+    <div class="section-header">
+      <div class="section-title">Transaction Lifecycle</div>
+      <div class="section-desc">A transaction passes through <strong>7 stages</strong> before becoming permanent on-chain data. This applies to ALL transaction types: transfers, contract calls, and certificate operations.</div>
+    </div>
+    <div class="diagram-card" id="dia-tx"></div>
+  </div>
+
+  <!-- TAB 4: PBFT CONSENSUS -->
+  <div class="panel" id="panel-pbft">
+    <div class="section-header">
+      <div class="section-title">PBFT Consensus</div>
+      <div class="section-desc">Practical Byzantine Fault Tolerance requires <strong>3 communication rounds</strong> to finalize a block. Tolerates up to <strong>f = floor of (n-1)/3</strong> Byzantine faults. Quorum = 2f + 1.</div>
+    </div>
+    <div class="diagram-card" id="dia-pbft"></div>
+  </div>
+
+</div>
+
+<script>
+  // Inject diagrams via JS to avoid HTML entity encoding issues
+  const diagrams = {
+    gen: `flowchart TD
+    WIZ[Next.js Wizard UI] -->|Step by step| CFG[User picks config]
+    CFG -->|Create and Generate| SAVE[POST /projects]
+    SAVE --> DB[(SQLite: save config JSON)]
+    DB -->|User clicks Download| DL[POST /generate/download]
+    DL --> B[builder.py reads config]
+
+    B --> C{NetworkType}
+    C -->|public| D1[Include pow, pos, poa]
+    C -->|consortium| D2[Include pbft, hotstuff, tendermint]
+    C -->|centralized| D3[Include raft, paxos]
+
+    B --> E{SyncMode}
+    E -->|full| F1[Include full.py]
+    E -->|light| F2[Include light.py]
+    E -->|fast| F3[Include fast.py]
+
+    B --> VM{VMRuntime}
+    VM -->|EVM| EVMR[PythonVM + Solidity support]
+    VM -->|WASM| WASMR[WASM Runtime + C++ support]
+
+    B --> G[Walk templates/chain_core/]
+    D1 --> H[Filter only selected modules]
+    D2 --> H
+    D3 --> H
+    F1 --> H
+    F2 --> H
+    F3 --> H
+    EVMR --> H
+    WASMR --> H
+    G --> H
+    H --> J[Copy allowed files to ZIP]
+
+    B --> K[Process Smart Contracts]
+    K --> L{Language}
+    L -->|Python| M1[Copy .py directly]
+    L -->|Solidity| M2[Gemini LLM Transpiler]
+    L -->|C++| M3[Copy .cpp as WASM module]
+    M1 --> N[modules/smart_contracts/]
+    M2 --> N
+    M3 --> N
+
+    N --> O[Auto-Generate 4 Files]
+    O --> P1[contract_routes.py]
+    O --> P2[server.py]
+    O --> P3[sdk/client.py]
+    O --> P4[sdk/client.js]
+
+    J --> ZIP[Final ZIP Package]
+    P1 --> ZIP
+    P2 --> ZIP
+    P3 --> ZIP
+    P4 --> ZIP
+    N --> ZIP`,
+
+    node: `flowchart TD
+    subgraph EXTERNAL[External - Your Application]
+        BACKEND[Backend e.g. cert api.py] --> SDK[SDK client.py]
+    end
+
+    SDK -->|HTTP POST /transactions| SERVER
+    SDK -->|HTTP GET /state| SERVER
+    SDK -->|HTTP GET /blocks| SERVER
+
+    subgraph NODE[Generated Blockchain Node]
+        MAIN[main.py] --> CONFIG[Load genesis.json]
+        CONFIG --> DI[DependencyInjector]
+
+        DI --> CON{Consensus}
+        CON -->|pbft| PBFT[PBFTConsensus]
+        CON -->|pow| POW[PoWConsensus]
+        CON -->|raft| RAFT[RaftConsensus]
+        CON -->|poa| POA[PoAConsensus]
+
+        DI --> SYN{Sync}
+        SYN -->|full| FSYNC[FullSync]
+        SYN -->|light| LSYNC[LightSync]
+
+        DI --> RT{Runtime}
+        RT --> PVM[PythonVM]
+
+        DI --> NET[P2PNetwork]
+
+        PBFT --> CHAIN[Blockchain]
+        POW --> CHAIN
+        RAFT --> CHAIN
+        POA --> CHAIN
+        PVM --> CHAIN
+        FSYNC --> CHAIN
+        LSYNC --> CHAIN
+
+        CHAIN --> MP[Mempool]
+        CHAIN --> STATE[World State]
+        CHAIN --> PERSIST[SQLite Persistence]
+        CHAIN --> MERKLE[Merkle Tree]
+
+        MAIN --> SERVER[server.py]
+        SERVER --> CHAIN
+        SERVER --> CROUTE[contract_routes.py]
+        CROUTE --> MP
+
+        MAIN --> NET
+    end
+
+    NET --> PEERS[Other Peer Nodes]`,
+
+    tx: `flowchart TD
+    A[User or SDK submits TX] --> B[POST /transactions]
+
+    B --> C{ValidSig}
+    C -->|No| CFAIL[REJECTED]
+    C -->|Yes| D[Enter Mempool]
+
+    D --> DCHK{ValidNonce}
+    DCHK -->|Bad| DFAIL[REJECTED from pool]
+    DCHK -->|OK| E[Queued by gas price]
+
+    E --> F[Mining Loop every 5s]
+
+    F --> G[Dry run on state copy]
+    G --> GCHK{Execution}
+    GCHK -->|Error| GFAIL[TX dropped]
+    GCHK -->|Success| H[Compute State Root]
+
+    H --> I[Create Block]
+
+    I --> J[Consensus validates]
+    J --> K[Broadcast to all peers]
+
+    K --> L[Peers re-execute TXs]
+    L --> LCHK{RootsMatch}
+    LCHK -->|Mismatch| LFAIL[Block Rejected]
+    LCHK -->|Match| M[COMMITTED to SQLite]
+
+    M --> N[Remove TX from mempool]
+
+    style A fill:#1e1b4b,stroke:#6366f1,color:#e8e8f0
+    style M fill:#064e3b,stroke:#34d399,color:#e8e8f0
+    style CFAIL fill:#4a1520,stroke:#fb7185,color:#e8e8f0
+    style DFAIL fill:#4a1520,stroke:#fb7185,color:#e8e8f0
+    style GFAIL fill:#4a1520,stroke:#fb7185,color:#e8e8f0
+    style LFAIL fill:#4a1520,stroke:#fb7185,color:#e8e8f0`,
+
+    pbft: `sequenceDiagram
+    participant L as Leader
+    participant V1 as Validator 1
+    participant V2 as Validator 2
+    participant V3 as Validator 3 Byzantine
+
+    rect rgba(99, 102, 241, 0.1)
+    Note over L,V3: Phase 1: PRE-PREPARE
+    L->>V1: block_data + sequence
+    L->>V2: block_data + sequence
+    L->>V3: block_data + sequence
+    end
+
+    rect rgba(34, 211, 238, 0.1)
+    Note over L,V3: Phase 2: PREPARE
+    V1->>L: PREPARE block_hash
+    V1->>V2: PREPARE block_hash
+    V2->>L: PREPARE block_hash
+    V2->>V1: PREPARE block_hash
+    L->>V1: PREPARE block_hash
+    L->>V2: PREPARE block_hash
+    V3--xL: Silent or wrong hash
+    Note over L,V2: Quorum: 3 prepares met
+    end
+
+    rect rgba(52, 211, 153, 0.1)
+    Note over L,V3: Phase 3: COMMIT
+    L->>V1: COMMIT block_hash
+    L->>V2: COMMIT block_hash
+    V1->>L: COMMIT block_hash
+    V1->>V2: COMMIT block_hash
+    V2->>L: COMMIT block_hash
+    V2->>V1: COMMIT block_hash
+    Note over L,V2: Quorum: 3 commits met
+    end
+
+    Note over L,V2: Block Committed to Chain
+    Note over V3: Byzantine node ignored`
+  };
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis', padding: 20 },
+    sequence: { useMaxWidth: false, actorMargin: 80, messageFontSize: 13, noteFontSize: 13, wrap: true }
+  });
+
+  // Render each diagram into its container
+  async function renderAll() {
+    for (const [key, def] of Object.entries(diagrams)) {
+      const container = document.getElementById('dia-' + key);
+      try {
+        const { svg } = await mermaid.render('mermaid-' + key, def);
+        container.innerHTML = svg;
+      } catch (e) {
+        container.innerHTML = '<p style="color:#fb7185">Diagram error: ' + e.message + '</p>';
+        console.error(key, e);
+      }
+    }
+  }
+
+  renderAll();
+
+  document.querySelectorAll('.tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var target = tab.dataset.panel;
+      document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+      document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      document.getElementById('panel-' + target).classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>

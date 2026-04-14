@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChainForge — Certificate Flows (High Contrast)</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      /* Slate 100 - slightly darker base */
+      --surface: #ffffff;
+      --surface2: #e2e8f0;
+      /* Slate 200 */
+      --border: #cbd5e1;
+      /* Slate 300 - much more visible */
+      --text: #0f172a;
+      /* Slate 900 */
+      --muted: #475569;
+      /* Slate 600 - darker muted text */
+      --blue: #2563eb;
+      --purple: #7c3aed;
+      --green: #059669;
+      --amber: #d97706;
+      --red: #dc2626;
+      --tab-h: 44px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── TOP BAR ──────────────────────────────────────────── */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      padding: 24px 40px 0;
+    }
+
+    .topbar-inner {
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    .brand {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .page-title {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 24px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 12px;
+    }
+
+    .tab {
+      height: var(--tab-h);
+      padding: 0 20px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all .2s;
+      white-space: nowrap;
+      position: relative;
+      bottom: -1px;
+    }
+
+    .tab:hover {
+      color: var(--text);
+    }
+
+    .tab.active {
+      color: var(--blue);
+      border-bottom-color: var(--blue);
+    }
+
+    /* ── BODY ─────────────────────────────────────────────── */
+    .main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px;
+    }
+
+    .panel {
+      display: none;
+    }
+
+    .panel.active {
+      display: block;
+    }
+
+    /* ── LEGEND ───────────────────────────────────────────── */
+    .legend {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+      padding: 18px 24px;
+      background: var(--surface);
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    /* ── DIAGRAM CARD ─────────────────────────────────────── */
+    .diagram-card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      overflow-x: auto;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    /* ── SWIMLANE RENDERER ────────────────────────────────── */
+    .swimlane-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .swim-row {
+      display: flex;
+      align-items: stretch;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .swim-row:last-child {
+      border-bottom: none;
+    }
+
+    .swim-label {
+      width: 120px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      writing-mode: vertical-lr;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--surface2);
+      border-right: 2px solid var(--border);
+      padding: 20px 0;
+    }
+
+    .swim-content {
+      flex: 1;
+      padding: 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ── FLOW NODES ───────────────────────────────────────── */
+    .fn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .node-box {
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+      line-height: 1.4;
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      border-width: 2px;
+      border-style: solid;
+    }
+
+    .node-box code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      display: block;
+      opacity: 0.9;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* Colors adjusted for high contrast light mode */
+    .node-user {
+      background: #dbeafe;
+      border-color: #2563eb;
+      color: #1e40af;
+    }
+
+    .node-backend {
+      background: #ede9fe;
+      border-color: #7c3aed;
+      color: #5b21b6;
+    }
+
+    .node-node {
+      background: #ccfbf1;
+      border-color: #059669;
+      color: #064e3b;
+    }
+
+    .node-net {
+      background: #fef3c7;
+      border-color: #d97706;
+      color: #78350f;
+    }
+
+    .node-db {
+      background: #f1f5f9;
+      border-color: #64748b;
+      color: #1e293b;
+    }
+
+    .node-ok {
+      background: #dcfce7;
+      border-color: #16a34a;
+      color: #14532d;
+      border-width: 3px;
+    }
+
+    .node-fail {
+      background: #fee2e2;
+      border-color: #dc2626;
+      color: #7f1d1d;
+      border-width: 2px;
+    }
+
+    .node-check {
+      background: #fff7ed;
+      border-color: #ea580c;
+      color: #7c2d12;
+      border-radius: 50px;
+      border-width: 3px;
+    }
+
+    .arrow {
+      color: #94a3b8;
+      /* Darker Arrows */
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1;
+      align-self: center;
+      flex-shrink: 0;
+      filter: drop-shadow(0 1px 1px white);
+    }
+
+    .step-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      font-weight: 700;
+      background: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .fork-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .fork-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .fork-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">ChainForge · System Engineering</div>
+      <div class="page-title">High-Contrast Execution Flows</div>
+      <div class="tabs">
+        <button class="tab active" data-panel="reg">4.3 · Registration</button>
+        <button class="tab" data-panel="iss">4.4 · Issuance</button>
+        <button class="tab" data-panel="ver">4.5 · Verification</button>
+        <button class="tab" data-panel="rev">4.6 · Revocation</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <div class="legend">
+      <span class="legend-item"><span class="dot" style="background:#dbeafe;border-color:#2563eb"></span>User
+        Client</span>
+      <span class="legend-item"><span class="dot" style="background:#ede9fe;border-color:#7c3aed"></span>Backend
+        (API)</span>
+      <span class="legend-item"><span class="dot" style="background:#ccfbf1;border-color:#059669"></span>Blockchain
+        Node</span>
+      <span class="legend-item"><span class="dot" style="background:#fef3c7;border-color:#d97706"></span>P2P
+        Network</span>
+      <span class="legend-item"><span class="dot" style="background:#f1f5f9;border-color:#64748b"></span>Persistence
+        (DB)</span>
+    </div>
+
+    <div class="panel active" id="panel-reg">
+      <div class="diagram-card">
+        <div class="swimlane-wrap">
+          <div class="swim-row">
+            <div class="swim-label">User</div>
+            <div class="swim-content">
+              <div class="fn">
+                <div class="node-box node-user">POST /auth/register<br /><code>username + password</code></div>
+                <div class="step-num">STEP 1</div>
+              </div>
+            </div>
+          </div>
+          <div class="swim-row">
+            <div class="swim-label">Backend</div>
+            <div class="swim-content">
+              <div class="fn">
+                <div class="node-box node-backend">bcrypt sync<br /><code>hash password</code></div>
+                <div class="step-num">STEP 2</div>
+              </div>
+              <div class="arrow">➤</div>
+              <div class="fn">
+                <div class="node-box node-backend">ECDSA Keygen<br /><code>secp256k1</code></div>
+                <div class="step-num">STEP 3</div>
+              </div>
+              <div class="arrow">➤</div>
+              <div class="fn">
+                <div class="node-box node-backend">NodeManager<br /><code>spawn_child_process</code></div>
+                <div class="step-num">STEP 4</div>
+              </div>
+              <div class="arrow">➤</div>
+              <div class="fn">
+                <div class="node-box node-ok">GENERATE JWT<br /><code>Auth Token Issued</code></div>
+                <div class="step-num">STEP 8</div>
+              </div>
+            </div>
+          </div>
+          <div class="swim-row">
+            <div class="swim-label">Node</div>
+            <div class="swim-content">
+              <div class="fn">
+                <div class="node-box node-node">python main.py<br /><code>initialize blockchain</code></div>
+                <div class="step-num">STEP 5</div>
+              </div>
+              <div class="arrow">➤</div>
+              <div class="fn">
+                <div class="node-box node-ok">Online: 808x<br /><code>P2P Handshake</code></div>
+                <div class="step-num">STEP 7</div>
+              </div>
+            </div>
+          </div>
+          <div class="swim-row">
+            <div class="swim-label">DB</div>
+            <div class="swim-content">
+              <div class="fn">
+                <div class="node-box node-db">users.sqlite<br /><code>save node metadata</code></div>
+                <div class="step-num">STEP 6</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-iss">
+      <div class="diagram-card">
+        <div class="swimlane-wrap">
+          <div class="swim-row">
+            <div class="swim-label">User</div>
+            <div class="swim-content">
+              <div class="fn">
+                <div class="node-box node-user">Issue Certificate<br /><code>POST /api/issue</code></div>
+                <div class="step-num">START</div>
+              </div>
+            </div>
+          </div>
+          <div class="swim-row">
+            <div class="swim-label">Backend</div>
+            <div class="swim-content">
+              <div class="fn">
+                <div class="node-box node-backend">Payload Sign<br /><code>SDK.sign_tx()</code></div>
+                <div class="step-num">SIGN</div>
+              </div>
+              <div class="arrow">➤</div>
+              <div class="fn">
+                <div class="node-box node-backend">Polling Loop<br /><code>await confirmation</code></div>
+                <div class="step-num">WAIT</div>
+              </div>
+              <div class="arrow">➤</div>
+              <div class="node-box node-ok">SUCCESS</div>
+            </div>
+          </div>
+          <div class="swim-row">
+            <div class="swim-label">Node</div>
+            <div class="swim-content">
+              <div class="fn">
+                <div class="node-box node-node">Add to Mempool<br /><code>verify signature</code></div>
+                <div class="step-num">QUEUE</div>
+              </div>
+              <div class="arrow">➤</div>
+              <div class="fn">
+                <div class="node-box node-node">VM Execution<br /><code>write state[cert_id]</code></div>
+                <div class="step-num">COMMIT</div>
+              </div>
+            </div>
+          </div>
+          <div class="swim-row">
+            <div class="swim-label">Network</div>
+            <div class="swim-content">
+              <div class="node-box node-net">P2P GOSSIP<br /><code>Broadcast WebSocket</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-ver">
+      <div class="diagram-card">
+        <div class="swimlane-wrap">
+          <div class="swim-row">
+            <div class="swim-label">User</div>
+            <div class="swim-content">
+              <div class="node-box node-user">Search cert_id</div>
+            </div>
+          </div>
+          <div class="swim-row">
+            <div class="swim-label">Backend</div>
+            <div class="swim-content">
+              <div class="fn">
+                <div class="node-box node-backend">URL Fetch<br /><code>Get all issuers</code></div>
+              </div>
+              <div class="arrow">➤</div>
+              <div class="fn">
+                <div class="node-box node-backend">Parallel HTTP<br /><code>GET /state</code></div>
+              </div>
+              <div class="arrow">➤</div>
+              <div class="fn">
+                <div class="node-box node-check">TALLY QUORUM<br /><code>Consensus Vote</code></div>
+              </div>
+              <div class="arrow">➤</div>
+              <div class="fork-wrap">
+                <div class="fork-row">
+                  <div class="node-box node-ok">VALID</div>
+                </div>
+                <div class="fork-row">
+                  <div class="node-box node-fail">REVOKED</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="swim-row">
+            <div class="swim-label">Nodes</div>
+            <div class="swim-content">
+              <div class="node-box node-node">Issuer Node 1</div>
+              <div class="arrow">...</div>
+              <div class="node-box node-node">Issuer Node N</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-rev">
+      <div class="diagram-card">
+        <div class="swimlane-wrap">
+          <div class="swim-row">
+            <div class="swim-label">User</div>
+            <div class="swim-content">
+              <div class="node-box node-user">Revoke Click</div>
+            </div>
+          </div>
+          <div class="swim-row">
+            <div class="swim-label">Backend</div>
+            <div class="swim-content">
+              <div class="fn">
+                <div class="node-box node-check">AUTH GUARD<br /><code>Issuer Match?</code></div>
+              </div>
+              <div class="arrow">➤</div>
+              <div class="node-box node-ok">REVOKE TX SIGN</div>
+            </div>
+          </div>
+          <div class="swim-row">
+            <div class="swim-label">Node</div>
+            <div class="swim-content">
+              <div class="fn">
+                <div class="node-box node-fail">STATE OVERRIDE<br /><code>is_revoked: True</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.panel;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + target).classList.add('active');
+      });
+    });
+  </script>
+
+</body>
+
+</html>
