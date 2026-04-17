@@ -11,6 +11,7 @@ class ConfigValidator:
     
     @staticmethod
     def validate(config: Dict[str, Any]) -> List[str]:
+        # Validate the provided configuration dictionary and return a list of error messages
         errors = []
         
         network_type = config.get("networkType")

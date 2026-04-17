@@ -11,13 +11,17 @@ router = APIRouter(
 
 @router.post("/{project_id}/download")
 def download_chain(
+    """
+    Download the blockchain package for a given project.
+    Checks project ownership and validates configuration before building.
+    """
     project_id: int,
     db: Session = Depends(database.get_db),
     current_user: schemas.User = Depends(auth.get_current_user)
 ):
     project = db.query(crud.models.Project).filter(crud.models.Project.id == project_id).first()
     if not project:
-         raise HTTPException(status_code=404, detail="Project not found")
+        raise HTTPException(status_code=404, detail="Project not found")
     
     if project.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
@@ -26,6 +30,7 @@ def download_chain(
     from generator.validator import ConfigValidator  # type: ignore
     errors = ConfigValidator.validate(project.config)
     if errors:
+        # TODO: Improve error reporting to include field-level details
         raise HTTPException(status_code=400, detail=f"Configuration error: {', '.join(errors)}")
 
     builder = ChainBuilder(project)
